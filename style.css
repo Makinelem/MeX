@@ -177,8 +177,3 @@ body[data-theme="escuro"] .paid-badge{background:#1e2f4a!important;color:#8ab4ff
   .modal-box{max-width:680px;border-radius:20px}
   .bottom-nav{max-width:720px;margin:auto;left:50%;transform:translateX(-50%);border:1px solid #ddd;border-radius:16px 16px 0 0}
 }
-
-.list-card.cli-vermelho{border-left-color:#e53935!important}
-.list-card.cli-laranja{border-left-color:#f0c419!important}
-.list-card.cli-cinza{border-left-color:#9e9e9e!important}
-.list-card.cli-verde{border-left-color:#35a853!important}
