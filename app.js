@@ -45,52 +45,44 @@ function openCliente(id=null){
 }
 function clienteDetalhes(id){ const c=db.clientes.find(x=>x.id===id);if(!c)return; const wa=whatsappUrl(c.contato),tel=telUrl(c.contato); openModal('Dados do cliente',`<div class="client-detail"><h3>${escapeHtml(c.nome)}</h3><div><b>Contato:</b> ${escapeHtml(c.contato||'-')}</div><div><b>Endereço:</b> ${escapeHtml(c.endereco||'-')}</div><div><b>CEP:</b> ${escapeHtml(c.cep||'-')}</div><div><b>CPF/CNPJ:</b> ${escapeHtml(c.doc||'-')}</div><div class="contact-actions">${c.contato?`<a class="contact-btn whatsapp" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a><a class="contact-btn call" href="${tel}">☎ Chamada</a>`:''}</div><div class="form-actions"><button onclick="openCliente('${id}')">✎ Editar</button><button class="danger" onclick="delCliente('${id}')">🗑 Excluir</button></div></div>`);}
 function delCliente(id){ const c=db.clientes.find(x=>x.id===id);if(!c)return; if(confirm(`Excluir o cliente ${c.nome}?`)){db.clientes=db.clientes.filter(x=>x.id!==id);save();$('#modal').classList.add('hidden');render()}}
-function clienteStatus(id){
-  const orcs = db.orcamentos.filter(q=>q.clienteId===id);
-  // vermelho = tem débito (aprovado/concluido e não pago 100%)
-  const temDebito = orcs.some(q => (q.status==='aprovado' || q.status==='concluido') && paymentPercent(q) < 100);
-  if(temDebito) return 'vermelho';
 
-  // verde = quitado há menos de 10 dias
-  const agora = Date.now();
-  const temVerde = orcs.some(q=>{
-    if(!isPaid(q)) return false;
-    const mov = normalizeFinance(q).slice().sort((a,b)=> new Date(b.data)-new Date(a.data))[0];
-    const dataQuitado = mov? new Date(mov.data).getTime() : new Date(q.data).getTime();
-    const dias = Math.floor((agora - dataQuitado)/86400000);
-    return dias <= 10;
-  });
-  if(temVerde) return 'verde';
-
-  // laranja = tem pendente ou aprovado (sem débito)
-  const temPendenteAprovado = orcs.some(q => q.status==='pendente' || q.status==='aprovado');
-  if(temPendenteAprovado) return 'laranja';
-
-  // cinza = resto
-  return 'cinza';
+function quoteTotal(q){return(q.items||[]).reduce((s,x)=>s+(Number(x.qtd)||0)*(Number(x.uni)||0),0)}
+function normalizeFinance(q){
+ if(!q.movimentos){
+   const f=q.financeiro;
+   q.movimentos=f&&Number(f.recebido)>0?[{id:crypto.randomUUID(),data:f.data||q.data,metodo:f.metodo||'Não informado',parcelas:Number(f.parcelas)||1,valor:Number(f.recebido)||0}]:[];
+ }
+ return q.movimentos||[];
 }
-
+function received(q){return normalizeFinance(q).reduce((s,m)=>s+(Number(m.valor)||0),0)}
+function paymentPercent(q){const total=quoteTotal(q);return total?Math.min(100,(received(q)/total)*100):0}
+function isPaid(q){return paymentPercent(q)>=100;}
 function clienteTemDebito(id){
-  return db.orcamentos.some(q => 
-    q.clienteId===id && 
-    (q.status==='aprovado' || q.status==='concluido') && 
-    paymentPercent(q) < 100
-  );
+  return db.orcamentos.some(q => q.clienteId===id && (q.status==='aprovado' || q.status==='concluido') && paymentPercent(q) < 100);
 }
-
-function renderClientes(){ 
+function renderClientes(){
   $('#clientesLista').innerHTML=db.clientes.map(c=>{
-    const classe = clienteTemDebito(c.id) ? ' cli-vermelho' : '';
+    const classe = clienteTemDebito(c.id)? ' cli-vermelho' : '';
     return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a><div class="actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button><span class="spacer"></span><button onclick="novoOrc('${c.id}')">+ Novo orçamento</button></div></div>`
   }).join('')||'<div class="list-card">Nenhum cliente cadastrado.</div>'
 }
+
 function novoOrc(clienteId=null,id=null){
  const q=db.orcamentos.find(x=>x.id===id)||{clienteId:clienteId||'',items:[],validade:15,status:'pendente'};
  if(q.status!=='pendente'&&id){openModal('Aviso','<p>Somente orçamentos pendentes podem ser editados.</p>');return}
- openModal(id?'Editar orçamento':'Novo orçamento',`<form id="orcForm"><label>Cliente*</label><select id="qCliente" required><option value="">Selecione</option>${db.clientes.map(c=>`<option value="${c.id}" ${c.id===q.clienteId?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select><label>Validade (dias)</label><input id="qValidade" type="number" min="1" value="${q.validade||15}"><div id="itens"></div><button type="button" class="secondary" id="addItem">+ Adicionar item</button><div class="form-actions quote-save-actions"><button type="submit" style="background:#17324d;color:white">Salvar orçamento</button>${q.status==='pendente'?'<button type="button" id="saveShare" class="share-save">↗ Salvar e compartilhar</button>':''}</div></form>`);
+ openModal(id?'Editar orçamento':'Novo orçamento',`<form id="orcForm"><label>Cliente*</label><select id="qCliente" required><option value="">Selecione</option>${db.clientes.map(c=>`<option value="${c.id}" ${c.id===q.clienteId?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select><label>Validade (dias)</label><input id="qValidade" type="number" min="1" value="${q.validade||15}"><div id="itens"></div><button type="button" class="secondary" id="addItem">+ Adicionar item</button><div class="form-actions quote-save-actions"><button type="button" id="cancelOrc">Cancelar</button><button type="submit" style="background:#17324d;color:white">Salvar orçamento</button>${q.status==='pendente'?'<button type="button" id="saveShare" class="share-save">↗ Salvar e compartilhar</button>':''}</div></form>`);
  let items=[...(q.items||[])];
- const paint=()=>{$('#itens').innerHTML=items.map((it,i)=>`<div class="list-card" style="margin:10px 0"><b>Item ${i+1}</b><label>Nome*</label><input class="in" data-k="nome" data-i="${i}" value="${escapeAttr(it.nome||'')}"><label>Descrição*</label><textarea class="in" data-k="desc" data-i="${i}">${escapeHtml(it.desc||'')}</textarea><label>QTD*</label><input class="in" data-k="qtd" data-i="${i}" type="number" min="0" step="0.01" value="${it.qtd??1}"><label>Valor unitário*</label><input class="in" data-k="uni" data-i="${i}" type="number" min="0" step="0.01" value="${it.uni??0}"><div class="meta">Total: <b class="item-total">${money((it.qtd||0)*(it.uni||0))}</b></div></div>`).join('')};
- paint();$('#addItem').onclick=()=>{items.push({qtd:1,uni:0});paint()};
+ if(!items.length) items.push({qtd:1,uni:0,nome:'',desc:''});
+ const paint=()=>{
+   $('#itens').innerHTML=items.map((it,i)=>`<div class="list-card" style="margin:10px 0"><div style="display:flex;justify-content:space-between;align-items:center"><b>Item ${i+1}</b><button type="button" class="quote-icon danger-icon" onclick="removeItem(${i})" title="Remover">✕</button></div><label>Nome*</label><input class="in" data-k="nome" data-i="${i}" value="${escapeAttr(it.nome||'')}"><label>Descrição*</label><textarea class="in" data-k="desc" data-i="${i}">${escapeHtml(it.desc||'')}</textarea><label>QTD*</label><input class="in" data-k="qtd" data-i="${i}" type="number" min="0" step="0.01" value="${it.qtd??1}"><label>Valor unitário*</label><input class="in" data-k="uni" data-i="${i}" type="number" min="0" step="0.01" value="${it.uni??0}"><div class="meta">Total: <b class="item-total">${money((it.qtd||0)*(it.uni||0))}</b></div></div>`).join('');
+ };
+ window.removeItem = (idx)=>{
+   if(items.length===1){ alert('Deixe pelo menos 1 item. Se desistiu, clique em Cancelar.'); return; }
+   items.splice(idx,1); paint();
+ };
+ paint();
+ $('#addItem').onclick=()=>{items.push({qtd:1,uni:0,nome:'',desc:''});paint()};
+ $('#cancelOrc').onclick=()=>$('#modal').classList.add('hidden');
  $('#orcForm').oninput=e=>{if(e.target.classList.contains('in')){const i=Number(e.target.dataset.i),k=e.target.dataset.k;if(items[i])items[i][k]=e.target.value;const t=e.target.closest('.list-card')?.querySelector('.item-total');if(t)t.textContent=money((Number(items[i].qtd)||0)*(Number(items[i].uni)||0))}};
  const saveQuote=(shareAfter=false)=>{
    if(!items.length||items.some(x=>!String(x.nome||'').trim()||!String(x.desc||'').trim()||!x.qtd||x.uni==='')){alert('Preencha todos os campos obrigatórios dos itens.');return}
@@ -102,7 +94,7 @@ function novoOrc(clienteId=null,id=null){
  $('#orcForm').onsubmit=e=>{e.preventDefault();saveQuote(false)};
  if($('#saveShare'))$('#saveShare').onclick=()=>saveQuote(true);
 }
-function isPaid(q){return paymentPercent(q)>=100;}
+
 function paidWatermark(q){return isPaid(q)?'<div class="paid-watermark">PAGO</div>':''}
 function renderOrcamentos(filter='todos'){
  const list=db.orcamentos.filter(q=>filter==='todos'||q.status===filter).sort((a,b)=>b.data.localeCompare(a.data));
@@ -121,16 +113,6 @@ function schedulePaidDeletionPrompt(){ if(paidDeletePromptOpen)return; const q=d
 function promptPaidDeletion(id){ if(paidDeletePromptOpen)return; const q=db.orcamentos.find(x=>x.id===id); if(!q||!isPaid(q)||paidAgeDays(q)<PAID_DELETE_DAYS||q.pagoExclusaoRespondida)return; paidDeletePromptOpen=true; const c=db.clientes.find(x=>x.id===q.clienteId); openModal('Orçamento pago há mais de 60 dias',`<div class="paid-delete-prompt"><p>O orçamento <b>${escapeHtml(q.numero)}</b>${c?.nome?` do cliente <b>${escapeHtml(c.nome)}</b>`:''} está quitado há mais de 60 dias.</p><p>Deseja excluir?</p><div class="form-actions"><button id="paidDeleteNo">Não</button><button id="paidDeleteYes" class="danger">Sim, excluir</button></div></div>`); $('#paidDeleteNo').onclick=()=>{q.pagoExclusaoRespondida=true;q.pagoExclusaoLiberada=true;save();paidDeletePromptOpen=false;$('#modal').classList.add('hidden');renderOrcamentos()}; $('#paidDeleteYes').onclick=()=>{paidDeletePromptOpen=false;$('#modal').classList.add('hidden');db.orcamentos=db.orcamentos.filter(x=>x.id!==id);save();render()}; }
 function statusQ(id,s){const q=db.orcamentos.find(x=>x.id===id);if(q){q.status=s;save();render()}}
 function delQ(id){if(confirm('Excluir este orçamento?')){db.orcamentos=db.orcamentos.filter(x=>x.id!==id);save();render()}}
-function quoteTotal(q){return(q.items||[]).reduce((s,x)=>s+(Number(x.qtd)||0)*(Number(x.uni)||0),0)}
-function normalizeFinance(q){
- if(!q.movimentos){
-   const f=q.financeiro;
-   q.movimentos=f&&Number(f.recebido)>0?[{id:crypto.randomUUID(),data:f.data||q.data,metodo:f.metodo||'Não informado',parcelas:Number(f.parcelas)||1,valor:Number(f.recebido)||0}]:[];
- }
- return q.movimentos||[];
-}
-function received(q){return normalizeFinance(q).reduce((s,m)=>s+(Number(m.valor)||0),0)}
-function paymentPercent(q){const total=quoteTotal(q);return total?Math.min(100,(received(q)/total)*100):0}
 function financeClass(p){return p>=100?'pay100':p>=67?'pay67':p>33?'pay34':'pay33'}
 function renderFinanceiro(){ const all=db.orcamentos.filter(q=>q.status==='aprovado'||q.status==='concluido'); const qs=activeFinanceTab==='finalizados'?all.filter(q=>paymentPercent(q)>=100):activeFinanceTab==='relatorio'?all:all.filter(q=>paymentPercent(q)<100); $('#financeiroLista').innerHTML=qs.map(q=>{const c=db.clientes.find(x=>x.id===q.clienteId);return `<div class="list-card finance-card ${financeClass(paymentPercent(q))}" onclick="financeiro('${q.id}')"><b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'')}</div><a class="whatsapp" href="${whatsappUrl(c?.contato||'')}" onclick="event.stopPropagation()">${escapeHtml(c?.contato||'')}</a></div>`}).join('')||'<div class="list-card">Nenhum orçamento nesta categoria.</div>'}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeFinanceTab=b.dataset.tab;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));renderFinanceiro()});
@@ -209,112 +191,54 @@ async function gerarPdfOrcamento(q){
  text('CNPJ: 59.687.966/0001-91',companyX,781,8.5);
  const companyContact='(86) 98813-6559';
  text(companyContact,companyX,768,8.5);
- if(zap){
-   const wContact=pdfTextWidthApprox(companyContact,8.5,false);
-   img('Zap',11,11,companyX+wContact+3,766.5);
- }
- const rightEdge=565;
- const t1='ORCAMENTO/PEDIDO';
- const t2='N: '+q.numero;
- const t3='Emissao: '+dataStr;
- const t4='Validade: '+validade+' dias';
- text(t1,pdfRightX(t1,rightEdge,9.5,true),807,9.5,true);
- text(t2,pdfRightX(t2,rightEdge,8.5,true),793,8.5,true);
- text(t3,pdfRightX(t3,rightEdge,8.5,false),779,8.5,false);
- text(t4,pdfRightX(t4,rightEdge,8.5,false),765,8.5,false);
+ if(zap){ const wContact=pdfTextWidthApprox(companyContact,8.5,false); img('Zap',11,11,companyX+wContact+3,766.5); }
+ text('ORCAMENTO/PEDIDO',pdfRightX('ORCAMENTO/PEDIDO',565,9.5,true),807,9.5,true);
+ text('N: '+q.numero,pdfRightX('N: '+q.numero,565,8.5,true),793,8.5,true);
+ text('Emissao: '+dataStr,pdfRightX('Emissao: '+dataStr,565,8.5,false),779,8.5,false);
+ text('Validade: '+validade+' dias',pdfRightX('Validade: '+validade+' dias',565,8.5,false),765,8.5,false);
  line(30,748,565,748);
  text('Destinatario/ Cliente:',30,731,9.5,true);
-  // Cliente - só o dado em negrito
  let y=720;
- const l1='Nome/ Razao Social: ';
- text(l1,30,y,8.5,false);
- text(c.nome||'-',30+pdfTextWidthApprox(l1,8.5,false),y,8.5,true);
- y-=10;
- const l2='CPF/ CNPJ: ';
- text(l2,30,y,8.5,false);
- text(maskCpfCnpj(c.doc||'-'),30+pdfTextWidthApprox(l2,8.5,false),y,8.5,true);
- y-=10;
- const l3='Endereco (Opcional): ';
- text(l3,30,y,8.5,false);
- text(c.endereco||'-',30+pdfTextWidthApprox(l3,8.5,false),y,8.5,true);
- y-=10;
- const l4='Telefone/ Contato: ';
- text(l4,30,y,8.5,false);
- text(maskPhone(c.contato||'-'),30+pdfTextWidthApprox(l4,8.5,false),y,8.5,true);
- line(30,678,565,678);
- rect(30,623,535,17);
+ const l1='Nome/ Razao Social: '; text(l1,30,y,8.5,false); text(c.nome||'-',30+pdfTextWidthApprox(l1,8.5,false),y,8.5,true); y-=10;
+ const l2='CPF/ CNPJ: '; text(l2,30,y,8.5,false); text(maskCpfCnpj(c.doc||'-'),30+pdfTextWidthApprox(l2,8.5,false),y,8.5,true); y-=10;
+ const l3='Endereco (Opcional): '; text(l3,30,y,8.5,false); text(c.endereco||'-',30+pdfTextWidthApprox(l3,8.5,false),y,8.5,true); y-=10;
+ const l4='Telefone/ Contato: '; text(l4,30,y,8.5,false); text(maskPhone(c.contato||'-'),30+pdfTextWidthApprox(l4,8.5,false),y,8.5,true);
+ line(30,678,565,678); rect(30,623,535,17);
  text('ITEM',36,628,8.2,true); text('DESCRICAO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
  let rowTop=623;
- (q.items||[]).forEach((it,i)=>{
-   const descLines=wrapPdfText(it.desc||'',60);
-   const bottom=rowTop-36;
-   line(30,bottom,565,bottom);
-   text(String(i+1),35,rowTop-14,8.8,true);
-   text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true);
-   descLines.slice(0,2).forEach((d,k)=>text(d,75,rowTop-22-k*7,8.1));
-   text(String(it.qtd??0),370,rowTop-14,8.8);
-   text(money(it.uni),425,rowTop-14,8.8);
-   text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8);
-   rowTop=bottom;
- });
+ (q.items||[]).forEach((it,i)=>{ const bottom=rowTop-36; line(30,bottom,565,bottom); text(String(i+1),35,rowTop-14,8.8,true); text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true); wrapPdfText(it.desc||'',60).slice(0,2).forEach((d,k)=>text(d,75,rowTop-22-k*7,8.1)); text(String(it.qtd??0),370,rowTop-14,8.8); text(money(it.uni),425,rowTop-14,8.8); text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8); rowTop=bottom; });
  rect(30,47,330,33); rect(370,47,195,33);
- text('Proposta sujeita a aprovacao.',40,69,7.5);
- text('Garantia de fabrica conforme contrato.',40,56,7.5);
- text('VALOR TOTAL',380,69,8,true);
- text(money(total),380,52,13.5,true);
+ text('Proposta sujeita a aprovacao.',40,69,7.5); text('Garantia de fabrica conforme contrato.',40,56,7.5);
+ text('VALOR TOTAL',380,69,8,true); text(money(total),380,52,13.5,true);
  if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){ text('PAGO',230,350,86,true); }
  const streamBytes=pdfBytes(content.join('\n'));
- let objs={}; let objData={}; let nextId=1;
- const catalogId=nextId++; const pagesId=nextId++; const pageId=nextId++; const contentId=nextId++; const font1Id=nextId++; const font2Id=nextId++;
+ let objs={}, objData={}, nextId=1;
+ const catalogId=nextId++, pagesId=nextId++, pageId=nextId++, contentId=nextId++, font1Id=nextId++, font2Id=nextId++;
  let logoRgbId=null, logoAlphaId=null, zapRgbId=null, zapAlphaId=null;
  if(logo){ logoRgbId=nextId++; logoAlphaId=nextId++; }
  if(zap){ zapRgbId=nextId++; zapAlphaId=nextId++; }
  objs[catalogId]=`<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
  objs[pagesId]=`<< /Type /Pages /Kids [${pageId} 0 R] /Count 1 >>`;
  let xobjDict=''; if(logoRgbId) xobjDict+=`/Logo ${logoRgbId} 0 R `; if(zapRgbId) xobjDict+=`/Zap ${zapRgbId} 0 R `;
- const resXobj = xobjDict? `/XObject << ${xobjDict.trim()} >>` : '';
- objs[pageId]=`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font1Id} 0 R /F2 ${font2Id} 0 R >> ${resXobj} >> /Contents ${contentId} 0 R >>`;
+ objs[pageId]=`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font1Id} 0 R /F2 ${font2Id} 0 R >> ${xobjDict?`/XObject << ${xobjDict.trim()} >>`:''} >> /Contents ${contentId} 0 R >>`;
  objs[contentId]=`<< /Length ${streamBytes.length} >>`; objData[contentId]=streamBytes;
  objs[font1Id]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
  objs[font2Id]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
  if(logo){ objs[logoRgbId]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${logoAlphaId} 0 R /Length ${logo.rgb.length} >>`; objData[logoRgbId]=logo.rgb; objs[logoAlphaId]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${logo.alpha.length} >>`; objData[logoAlphaId]=logo.alpha; }
  if(zap){ objs[zapRgbId]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${zapAlphaId} 0 R /Length ${zap.rgb.length} >>`; objData[zapRgbId]=zap.rgb; objs[zapAlphaId]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${zap.alpha.length} >>`; objData[zapAlphaId]=zap.alpha; }
- let finalParts=[]; let finalOffsets={};
- const header=pdfBytes('%PDF-1.4\n');
- finalParts.push(header);
- let cur=header.length;
- const totalObjs=nextId-1;
- for(let i=1;i<=totalObjs;i++){
-   finalOffsets[i]=cur;
-   let b;
-   if(objData[i]){
-     b=pdfConcat([pdfBytes(i+' 0 obj\n'+objs[i]+'\nstream\n'), objData[i], pdfBytes('\nendstream\nendobj\n')]);
-   }else{
-     b=pdfBytes(i+' 0 obj\n'+objs[i]+'\nendobj\n');
-   }
-   finalParts.push(b); cur+=b.length;
- }
- const xrefPos=cur;
- let xref=`xref\n0 ${totalObjs+1}\n0000000000 65535 f \n`;
- for(let i=1;i<=totalObjs;i++){ xref+=String(finalOffsets[i]).padStart(10,'0')+' 00000 n \n'; }
- xref+=`trailer\n<< /Size ${totalObjs+1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
- finalParts.push(pdfBytes(xref));
+ let finalParts=[], finalOffsets={}; const header=pdfBytes('%PDF-1.4\n'); finalParts.push(header); let cur=header.length; const totalObjs=nextId-1;
+ for(let i=1;i<=totalObjs;i++){ finalOffsets[i]=cur; let b; if(objData[i]){ b=pdfConcat([pdfBytes(i+' 0 obj\n'+objs[i]+'\nstream\n'), objData[i], pdfBytes('\nendstream\nendobj\n')]); }else{ b=pdfBytes(i+' 0 obj\n'+objs[i]+'\nendobj\n'); } finalParts.push(b); cur+=b.length; }
+ const xrefPos=cur; let xref=`xref\n0 ${totalObjs+1}\n0000000000 65535 f \n`; for(let i=1;i<=totalObjs;i++){ xref+=String(finalOffsets[i]).padStart(10,'0')+' 00000 n \n'; } xref+=`trailer\n<< /Size ${totalObjs+1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`; finalParts.push(pdfBytes(xref));
  return new Blob(finalParts,{type:'application/pdf'});
 }
 async function compartilharOrcamento(id){
  try{
-   const q=db.orcamentos.find(x=>x.id===id);
-   if(!q) throw new Error('Orcamento nao encontrado');
-   const c=db.clientes.find(x=>x.id===q.clienteId)||{};
-   const blob=await gerarPdfOrcamento(q);
+   const q=db.orcamentos.find(x=>x.id===id); if(!q) throw new Error('Orcamento nao encontrado');
+   const c=db.clientes.find(x=>x.id===q.clienteId)||{}; const blob=await gerarPdfOrcamento(q);
    const nomeSafe=`Orcamento_${q.numero}_${firstName(c.nome).replace(/[^A-Za-z0-9]/g,'')}.pdf`;
    const file=new File([blob],nomeSafe,{type:'application/pdf'});
-   if(navigator.canShare && navigator.canShare({files:[file]})){
-     try{ await navigator.share({files:[file], title:nomeSafe}); return; }catch(e){ if(e.name==='AbortError') return; }
-   }
-   const url=URL.createObjectURL(blob);
-   const a=document.createElement('a'); a.href=url; a.download=nomeSafe; document.body.appendChild(a); a.click(); a.remove();
-   setTimeout(()=>URL.revokeObjectURL(url),8000);
+   if(navigator.canShare && navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file], title:nomeSafe}); return; }catch(e){ if(e.name==='AbortError') return; } }
+   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=nomeSafe; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),8000);
  }catch(e){ console.error(e); alert('Erro PDF: '+(e.message||e)); }
 }
 function closeMenu(){$('#sideMenu')?.classList.add('hidden')}
@@ -332,6 +256,9 @@ $('#loginForm').onsubmit=e=>{e.preventDefault();login()};
 $('#loginPass').onkeydown=e=>{if(e.key==='Enter')login()};
 document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{$('#filtros').classList.add('hidden');renderOrcamentos(b.dataset.filter)});
 $('#filtroBtn').onclick=()=>$('#filtros').classList.toggle('hidden');
-function render(){renderClientes();renderOrcamentos();renderFinanceiro()}
+function fixBotoesNovo(){
+  document.querySelectorAll('#novoOrcamento').forEach(btn=>{ btn.onclick = () => novoOrc(); });
+}
+function render(){renderClientes();renderOrcamentos();renderFinanceiro(); fixBotoesNovo();}
 loadPreferences();
 if(isLogged())showApp();else showLogin();
