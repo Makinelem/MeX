@@ -166,11 +166,11 @@ async function gerarPdfOrcamento(q){
  text('Validade: '+validade+' dias',370,765,8.5);
  line(30,748,565,748);
  text('Destinatario/ Cliente:',30,731,9.5,true);
- text('Nome: '+(c.nome||'-'),30,714,8.5,true);
- text('CPF/CNPJ: '+maskCpfCnpj(c.doc||'-'),30,700,8.5);
- text('Endereco: '+(c.endereco||'-'),30,686,8.5);
- text('Telefone: '+maskPhone(c.contato||'-'),30,672,8.5);
- line(30,653,565,653);
+ text('Nome: '+(c.nome||'-'),30,720,8.5,true);
+ text('CPF/CNPJ: '+maskCpfCnpj(c.doc||'-'),30,710,8.5);
+ text('Endereco: '+(c.endereco||'-'),30,700,8.5);
+ text('Telefone: '+maskPhone(c.contato||'-'),30,690,8.5);
+ line(30,678,565,678);
  rect(30,623,535,17);
  text('ITEM',36,628,8.2,true); text('DESCRICAO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
  let rowTop=623; (q.items||[]).forEach((it,i)=>{ const descLines=wrapPdfText(it.desc||'',60); const bottom=rowTop-31; line(30,bottom,565,bottom); text(String(i+1),35,rowTop-14,8.8,true); text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true); descLines.slice(0,2).forEach((d,k)=>text(d,75,rowTop-24-k*7,8.1)); text(String(it.qtd??0),370,rowTop-14,8.8); text(money(it.uni),425,rowTop-14,8.8); text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8); rowTop=bottom; });
