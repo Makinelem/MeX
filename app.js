@@ -165,7 +165,7 @@ async function gerarPdfOrcamento(q){
  const rect=(x,y,w,h,fill='0.92')=>content.push(`${fill} g ${x} ${y} ${w} ${h} re f 0.82 G 0.65 w ${x} ${y} ${w} ${h} re S`);
  const img=(name,w,h,x,y)=>content.push(`q ${w} 0 0 ${h} ${x} ${y} cm /${name} Do Q`);
  const companyX=190;
- if(logo) img('Logo',110,45,30,775);
+ if(logo) img('Logo',110,45,30,771);
  line(175,775,175,820); line(430,775,430,820);
  text('Rua Nova, 6760 Pedra Mole',companyX,807,8.5);
  text('CEP: 64065-000',companyX,794,8.5);
