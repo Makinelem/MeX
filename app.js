@@ -137,7 +137,6 @@ async function loadPdfImage(path){
   return {w,h,rgb:await deflate(rgb),alpha:await deflate(alpha)};
 }
 
-// PDF 100% compativel - objetos em ordem
 async function gerarPdfOrcamento(q){
  const c=db.clientes.find(x=>x.id===q.clienteId)||{};
  const total=quoteTotal(q), dataStr=new Date(q.data||Date.now()).toLocaleDateString('pt-BR'), validade=Number(q.validade)||15;
@@ -157,9 +156,8 @@ async function gerarPdfOrcamento(q){
  text('Rua Nova, 6760 Pedra Mole',companyX,807,8.5);
  text('CEP: 64065-000',companyX,794,8.5);
  text('CNPJ: 59.687.966/0001-91',companyX,781,8.5);
- const companyContact='(86) 98813-6559';
- text(companyContact,companyX,768,8.5);
- if(zap) img('Zap',11,11,companyX+pdfTextWidthApprox(companyContact,8.5,false)+4,766);
+ text('(86) 98813-6559',companyX,768,8.5);
+ if(zap) img('Zap',11,11,companyX+pdfTextWidthApprox('(86) 98813-6559',8.5,false)+4,766);
  text('ORCAMENTO/PEDIDO',370,807,9.5,true);
  text('N: '+q.numero,370,793,8.5,true);
  text('Emissao: '+dataStr,370,779,8.5);
@@ -177,12 +175,11 @@ async function gerarPdfOrcamento(q){
  rect(30,47,330,33); rect(370,47,195,33);
  text('Proposta sujeita a aprovacao.',40,69,7.5); text('Garantia de fabrica conforme contrato.',40,56,7.5);
  text('VALOR TOTAL',380,69,8,true); text(money(total),380,52,13.5,true);
- if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){ const wm='PAGO'; text(wm,230,350,86,true); }
+ if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){ text('PAGO',230,350,86,true); }
 
  const streamStr=content.join('\n');
  const streamBytes=pdfBytes(streamStr);
 
- // Monta objetos em ORDEM CRESCENTE
  let objs=[];
  objs[1]='<< /Type /Catalog /Pages 2 0 R >>';
  objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
@@ -215,7 +212,7 @@ async function gerarPdfOrcamento(q){
    if(data){
      const head=pdfBytes(i+' 0 obj\n'+objs[i]+'\nstream\n');
      const tail=pdfBytes('\nendstream\nendobj\n');
-     const full=pdfConcat([head][data][tail]);
+     const full=pdfConcat([head, data, tail]);
      parts.push(full); offset+=full.length;
    }else{
      const b=pdfBytes(i+' 0 obj\n'+objs[i]+'\nendobj\n');
