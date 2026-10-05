@@ -70,10 +70,18 @@ function clienteStatus(id){
   return 'cinza';
 }
 
-function renderClientes(){
+function clienteTemDebito(id){
+  return db.orcamentos.some(q => 
+    q.clienteId===id && 
+    (q.status==='aprovado' || q.status==='concluido') && 
+    paymentPercent(q) < 100
+  );
+}
+
+function renderClientes(){ 
   $('#clientesLista').innerHTML=db.clientes.map(c=>{
-    const status = clienteStatus(c.id);
-    return `<div class="list-card client-card cli-${status}" onclick="clienteDetalhes('${c.id}')"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a><div class="actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button><span class="spacer"></span><button onclick="novoOrc('${c.id}')">+ Novo orçamento</button></div></div>`
+    const classe = clienteTemDebito(c.id) ? ' cli-vermelho' : '';
+    return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a><div class="actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button><span class="spacer"></span><button onclick="novoOrc('${c.id}')">+ Novo orçamento</button></div></div>`
   }).join('')||'<div class="list-card">Nenhum cliente cadastrado.</div>'
 }
 function novoOrc(clienteId=null,id=null){
