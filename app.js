@@ -10,31 +10,22 @@ function randomQuoteNumber(used=[]){
  const set=new Set(used.map(String));
  let n;
  do {
-   if(window.crypto?.getRandomValues){
-     const a=new Uint32Array(1);
-     crypto.getRandomValues(a);
-     n=a[0]%1000000;
-   } else n=Math.floor(Math.random()*1000000);
+   if(window.crypto?.getRandomValues){ const a=new Uint32Array(1); crypto.getRandomValues(a); n=a[0]%1000000; } else n=Math.floor(Math.random()*1000000);
  } while(set.has('M'+String(n).padStart(6,'0')));
  return 'M'+String(n).padStart(6,'0');
 }
-function normalizeQuoteNumbers(){
- const used=[];
- (db.orcamentos||[]).forEach(q=>{ q.numero=randomQuoteNumber(used); used.push(q.numero); });
- db.seq=1; save();
-}
+function normalizeQuoteNumbers(){ const used=[]; (db.orcamentos||[]).forEach(q=>{ q.numero=randomQuoteNumber(used); used.push(q.numero); }); db.seq=1; save(); }
 normalizeQuoteNumbers();
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)||0).replace(/\u00A0/g,' ');
 const $=s=>document.querySelector(s);
-let currentScreen='home';
-let activeFinanceTab='abertos';
+let currentScreen='home'; let activeFinanceTab='abertos';
 function auth(){return JSON.parse(localStorage.getItem(AUTH_KEY)||'null')||{user:'admin',pass:'1234'}}
 function isLogged(){return localStorage.getItem(SESSION_KEY)==='1'}
 function login(){ const u=$('#loginUser')?.value.trim(),p=$('#loginPass')?.value; if(u===auth().user&&p===auth().pass){localStorage.setItem(SESSION_KEY,'1');localStorage.removeItem('mex_hidden_at');showApp();} else $('#loginError').textContent='Usuário ou senha inválidos.';}
 function logout(){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('mex_hidden_at');showLogin()}
 function showLogin(){document.body.classList.add('logged-out');$('#loginScreen').classList.remove('hidden');$('#appShell').classList.add('hidden')}
 function showApp(){document.body.classList.remove('logged-out');$('#loginScreen').classList.add('hidden');$('#appShell').classList.remove('hidden');go(currentScreen||'home',false)}
-function checkInactivity(){ if(!isLogged())return; const hiddenAt=Number(localStorage.getItem('mex_hidden_at')||0); if(hiddenAt && Date.now()-hiddenAt>=INACTIVITY){logout()}}
+function checkInactivity(){ if(!isLogged())return; const h=Number(localStorage.getItem('mex_hidden_at')||0); if(h && Date.now()-h>=INACTIVITY){logout()}}
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){if(isLogged())localStorage.setItem('mex_hidden_at',String(Date.now()))} else {checkInactivity();if(isLogged())localStorage.removeItem('mex_hidden_at')}});
 setInterval(checkInactivity,30000);
 function go(id,doRender=true){currentScreen=id;document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('#'+id).classList.add('active');if(doRender)render();window.scrollTo({top:0,behavior:'smooth'});closeMenu()}
@@ -64,16 +55,29 @@ function novoOrc(clienteId=null,id=null){
  const paint=()=>{$('#itens').innerHTML=items.map((it,i)=>`<div class="list-card" style="margin:10px 0"><b>Item ${i+1}</b><label>Nome*</label><input class="in" data-k="nome" data-i="${i}" value="${escapeAttr(it.nome||'')}"><label>Descrição*</label><textarea class="in" data-k="desc" data-i="${i}">${escapeHtml(it.desc||'')}</textarea><label>QTD*</label><input class="in" data-k="qtd" data-i="${i}" type="number" min="0" step="0.01" value="${it.qtd??1}"><label>Valor unitário*</label><input class="in" data-k="uni" data-i="${i}" type="number" min="0" step="0.01" value="${it.uni??0}"><div class="meta">Total: <b class="item-total">${money((it.qtd||0)*(it.uni||0))}</b></div></div>`).join('')};
  paint();$('#addItem').onclick=()=>{items.push({qtd:1,uni:0});paint()};
  $('#orcForm').oninput=e=>{if(e.target.classList.contains('in')){const i=Number(e.target.dataset.i),k=e.target.dataset.k;if(items[i])items[i][k]=e.target.value;const t=e.target.closest('.list-card')?.querySelector('.item-total');if(t)t.textContent=money((Number(items[i].qtd)||0)*(Number(items[i].uni)||0))}};
- const saveQuote=(shareAfter=false)=>{ if(!items.length||items.some(x=>!String(x.nome||'').trim()||!String(x.desc||'').trim()||!x.qtd||x.uni==='')){alert('Preencha todos os campos obrigatórios dos itens.');return} if(!$('#qCliente').value){alert('Selecione o cliente.');return} const now=new Date();const x={...q,id:q.id||crypto.randomUUID(),numero:q.numero||randomQuoteNumber(db.orcamentos.map(v=>v.numero)),clienteId:$('#qCliente').value,validade:Number($('#qValidade').value)||15,data:q.data||now.toISOString(),[STRIPPED] if(q.id)db.orcamentos=db.orcamentos.map(v=>v.id===q.id?x:v);else db.orcamentos.push(x);save();$('#modal').classList.add('hidden');render();if(shareAfter)compartilharOrcamento(x.id)}; $('#orcForm').onsubmit=e=>{e.preventDefault();saveQuote(false)}; if($('#saveShare'))$('#saveShare').onclick=()=>saveQuote(true);
+ const saveQuote=(shareAfter=false)=>{
+   if(!items.length||items.some(x=>!String(x.nome||'').trim()||!String(x.desc||'').trim()||!x.qtd||x.uni==='')){alert('Preencha todos os campos obrigatórios dos itens.');return}
+   if(!$('#qCliente').value){alert('Selecione o cliente.');return}
+   const now=new Date();
+   const x={...q,id:q.id||crypto.randomUUID(),numero:q.numero||randomQuoteNumber(db.orcamentos.map(v=>v.numero)),clienteId:$('#qCliente').value,validade:Number($('#qValidade').value)||15,data:q.data||now.toISOString(),items:items,status:'pendente'};
+   if(q.id)db.orcamentos=db.orcamentos.map(v=>v.id===q.id?x:v);else db.orcamentos.push(x);save();$('#modal').classList.add('hidden');render();if(shareAfter)compartilharOrcamento(x.id)
+ };
+ $('#orcForm').onsubmit=e=>{e.preventDefault();saveQuote(false)};
+ if($('#saveShare'))$('#saveShare').onclick=()=>saveQuote(true);
 }
 function isPaid(q){return paymentPercent(q)>=100;}
 function paidWatermark(q){return isPaid(q)?'<div class="paid-watermark">PAGO</div>':''}
 function renderOrcamentos(filter='todos'){
  const list=db.orcamentos.filter(q=>filter==='todos'||q.status===filter).sort((a,b)=>b.data.localeCompare(a.data));
- $('#orcamentosLista').innerHTML=list.map(q=>{ const c=db.clientes.find(x=>x.id===q.clienteId),total=quoteTotal(q),contato=String(c?.contato||''); const itens=(q.items||[]).map((it,i)=>`<div class="quote-item"><b>${escapeHtml(i+1+'. '+it.nome)}</b><div>${escapeHtml(it.desc)}</div><small>Qtd: ${it.qtd} • Unit.: ${money(it.uni)} • Total: ${money((it.qtd||0)*(it.uni||0))}</small></div>`).join(''); const paidDeleteAction=isPaid(q)&&q.pagoExclusaoLiberada?`<button class="quote-icon danger-icon" onclick="delQ('${q.id}')">🗑</button>`:'';
+ $('#orcamentosLista').innerHTML=list.map(q=>{
+   const c=db.clientes.find(x=>x.id===q.clienteId),total=quoteTotal(q),contato=String(c?.contato||'');
+   const itens=(q.items||[]).map((it,i)=>`<div class="quote-item"><b>${escapeHtml(i+1+'. '+it.nome)}</b><div>${escapeHtml(it.desc)}</div><small>Qtd: ${it.qtd} • Unit.: ${money(it.uni)} • Total: ${money((it.qtd||0)*(it.uni||0))}</small></div>`).join('');
+   const paidDeleteAction=isPaid(q)&&q.pagoExclusaoLiberada?`<button class="quote-icon danger-icon" onclick="delQ('${q.id}')">🗑</button>`:'';
    const actions=q.status==='pendente'?`<button class="quote-icon" onclick="novoOrc(null,'${q.id}')">✎</button><button class="quote-icon" onclick="statusQ('${q.id}','aprovado')">✓</button><button class="quote-icon" onclick="statusQ('${q.id}','cancelado')">🔒</button>`:q.status==='cancelado'?`<button class="quote-icon" onclick="statusQ('${q.id}','pendente')">✎</button><button class="quote-icon" onclick="delQ('${q.id}')">🗑</button>`:q.status==='aprovado'?`<button class="quote-icon" onclick="novoOrc(null,'${q.id}')">✎</button><button class="quote-icon" onclick="statusQ('${q.id}','cancelado')">🔒</button><button class="quote-icon" onclick="statusQ('${q.id}','concluido')">✓</button>`:q.status==='vencido'?`<button class="quote-icon" onclick="statusQ('${q.id}','pendente')">✎</button><button class="quote-icon" onclick="delQ('${q.id}')">🗑</button>`:paidDeleteAction;
    const detailShare=q.status==='pendente'?`<button class="share-detail" onclick="compartilharOrcamento('${q.id}')">↗ Compartilhar PDF</button>`:'';
-   return `<div class="list-card ${q.status} quote-card ${isPaid(q)?'is-paid':''}" onclick="toggleQuoteDetail('${q.id}')">${paidWatermark(q)}<b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'Cliente não informado')} • ${new Date(q.data).toLocaleDateString('pt-BR')}</div><div class="quote-actions" onclick="event.stopPropagation()">${contato?`<a class="quote-contact" href="${whatsappUrl(contato)}" target="_blank">${escapeHtml(contato)}</a>`:''}<span class="spacer"></span>${actions}</div><div class="quote-detail hidden" id="detail-${q.id}"><div class="meta"><b>Cliente:</b> ${escapeHtml(c?.nome||'')}<br><b>Contato:</b> ${escapeHtml(c?.contato||'')}<br><b>Validade:</b> ${q.validade||15} dias</div><div class="quote-items">${itens||'<div class="meta">Nenhum item.</div>'}</div><div class="quote-total"><b>Total: ${money(total)}</b></div>${detailShare}</div></div>` }).join('')||'<div class="list-card">Nenhum orçamento encontrado.</div>'; schedulePaidDeletionPrompt();
+   return `<div class="list-card ${q.status} quote-card ${isPaid(q)?'is-paid':''}" onclick="toggleQuoteDetail('${q.id}')">${paidWatermark(q)}<b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'Cliente não informado')} • ${new Date(q.data).toLocaleDateString('pt-BR')}</div><div class="quote-actions" onclick="event.stopPropagation()">${contato?`<a class="quote-contact" href="${whatsappUrl(contato)}" target="_blank">${escapeHtml(contato)}</a>`:''}<span class="spacer"></span>${actions}</div><div class="quote-detail hidden" id="detail-${q.id}"><div class="meta"><b>Cliente:</b> ${escapeHtml(c?.nome||'')}<br><b>Contato:</b> ${escapeHtml(c?.contato||'')}<br><b>Validade:</b> ${q.validade||15} dias</div><div class="quote-items">${itens||'<div class="meta">Nenhum item.</div>'}</div><div class="quote-total"><b>Total: ${money(total)}</b></div>${detailShare}</div></div>`
+ }).join('')||'<div class="list-card">Nenhum orçamento encontrado.</div>';
+ schedulePaidDeletionPrompt();
 }
 function paidAgeDays(q){ const t=new Date(q.data).getTime(); return Number.isFinite(t)?Math.floor((Date.now()-t)/86400000):0; }
 function schedulePaidDeletionPrompt(){ if(paidDeletePromptOpen)return; const q=db.orcamentos.find(x=>isPaid(x)&&paidAgeDays(x)>=PAID_DELETE_DAYS&&!x.pagoExclusaoRespondida); if(!q)return; setTimeout(()=>promptPaidDeletion(q.id),120);}
@@ -81,26 +85,40 @@ function promptPaidDeletion(id){ if(paidDeletePromptOpen)return; const q=db.orca
 function statusQ(id,s){const q=db.orcamentos.find(x=>x.id===id);if(q){q.status=s;save();render()}}
 function delQ(id){if(confirm('Excluir este orçamento?')){db.orcamentos=db.orcamentos.filter(x=>x.id!==id);save();render()}}
 function quoteTotal(q){return(q.items||[]).reduce((s,x)=>s+(Number(x.qtd)||0)*(Number(x.uni)||0),0)}
-function normalizeFinance(q){ if(!q.movimentos){ const f=q.financeiro; q.movimentos=f&&Number(f.recebido)>0?[{id:crypto.randomUUID(),data:f.data||q.data,metodo:f.forma||'Nao informado',parcelas:Number(f.parcelas)||1,valor:Number(f.recebido)||0}]:[]; } return q.movimentos||[]; }
+function normalizeFinance(q){
+ if(!q.movimentos){
+   const f=q.financeiro;
+   q.movimentos=f&&Number(f.recebido)>0?[{id:crypto.randomUUID(),data:f.data||q.data,metodo:f.metodo||'Não informado',parcelas:Number(f.parcelas)||1,valor:Number(f.recebido)||0}]:[];
+ }
+ return q.movimentos||[];
+}
 function received(q){return normalizeFinance(q).reduce((s,m)=>s+(Number(m.valor)||0),0)}
 function paymentPercent(q){const total=quoteTotal(q);return total?Math.min(100,(received(q)/total)*100):0}
 function financeClass(p){return p>=100?'pay100':p>=67?'pay67':p>33?'pay34':'pay33'}
 function renderFinanceiro(){ const all=db.orcamentos.filter(q=>q.status==='aprovado'||q.status==='concluido'); const qs=activeFinanceTab==='finalizados'?all.filter(q=>paymentPercent(q)>=100):activeFinanceTab==='relatorio'?all:all.filter(q=>paymentPercent(q)<100); $('#financeiroLista').innerHTML=qs.map(q=>{const c=db.clientes.find(x=>x.id===q.clienteId);return `<div class="list-card finance-card ${financeClass(paymentPercent(q))}" onclick="financeiro('${q.id}')"><b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'')}</div><a class="whatsapp" href="${whatsappUrl(c?.contato||'')}" onclick="event.stopPropagation()">${escapeHtml(c?.contato||'')}</a></div>`}).join('')||'<div class="list-card">Nenhum orçamento nesta categoria.</div>'}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeFinanceTab=b.dataset.tab;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));renderFinanceiro()});
-function financeiro(id){ const q=db.orcamentos.find(x=>x.id===id);if(!q)return;const c=db.clientes.find(x=>x.id===q.clienteId),total=quoteTotal(q),mov=normalizeFinance(q),rec=received(q),rest=Math.max(0,total-rec); const history=mov.slice().sort((a,b)=>new Date(b.data)-new Date(a.data)).map(m=>`<div class="movement"><div><b>${escapeHtml(m.metodo)}</b><small>${new Date(m.data).toLocaleDateString('pt-BR')}${m.parcelas>1?' • '+m.parcelas+' parcelas':''}</small></div><strong>${money(m.valor)}</strong></div>`).join('')||'<div class="meta">Nenhuma movimentação.</div>'; openModal(`Financeiro • Nº ${q.numero}`,`<p><b>${escapeHtml(c?.nome||'')}</b><br><a class="whatsapp" href="${whatsappUrl(c?.contato||'')}" target="_blank">${escapeHtml(c?.contato||'')}</a></p><p>Total: <b>${money(total)}</b><br>Recebido: <b>${money(rec)}</b><br>Falta: <b>${money(rest)}</b></p><h3>Histórico</h3><div class="movement-list">${history}</div>${rest>0?`<button class="primary add-movement" id="addMovement">+ Adicionar movimentação</button>`:'<div class="paid-badge">Pagamento quitado</div>'}`); if($('#addMovement'))$('#addMovement').onclick=()=>addMovimento(q.id); }
-function addMovimento(id){ const q=db.orcamentos.find(x=>x.id===id);if(!q)return;const total=quoteTotal(q),rest=Math.max(0,total-received(q)); openModal('Adicionar movimentação',`<form id="movForm"><p>Falta receber: <b>${money(rest)}</b></p><label>Data</label><input id="movData" type="date" value="${new Date().toISOString().slice(0,10)}"><label>Forma</label><select id="movPay"><option value="">Selecione</option><option>PIX</option><option>Espécie</option><option>Débito</option><option>Crédito à vista</option><option>Crédito parcelado</option></select><label>Parcelas</label><input id="movParc" type="number" min="1" value="1"><label>Valor</label><input id="movValor" type="number" min="0.01" max="${rest}" step="0.01" required><div class="form-actions"><button type="submit" style="background:#17324d;color:white">Adicionar</button></div></form>`); $('#movForm').onsubmit=e=>{e.preventDefault();const valor=Number($('#movValor').value)||0;if(!$('#movPay').value||valor<=0||valor>rest){alert('Informe forma e valor válido.');return}normalizeFinance(q).push({id:crypto.randomUUID(),data:new Date($('#movData').value+'T12:00:00').toISOString(),metodo:$('#movPay').value,parcelas:Number($('#movParc').value)||1,valor});if(received(q)>=total)q.status='concluido';save();$('#modal').classList.add('hidden');render()}}
+function financeiro(id){
+ const q=db.orcamentos.find(x=>x.id===id);if(!q)return;const c=db.clientes.find(x=>x.id===q.clienteId),total=quoteTotal(q),mov=normalizeFinance(q),rec=received(q),rest=Math.max(0,total-rec);
+ const history=mov.slice().sort((a,b)=>new Date(b.data)-new Date(a.data)).map(m=>`<div class="movement"><div><b>${escapeHtml(m.metodo)}</b><small>${new Date(m.data).toLocaleDateString('pt-BR')}${m.parcelas>1?' • '+m.parcelas+' parcelas':''}</small></div><strong>${money(m.valor)}</strong></div>`).join('')||'<div class="meta">Nenhuma movimentação.</div>';
+ openModal(`Financeiro • Nº ${q.numero}`,`<p><b>${escapeHtml(c?.nome||'')}</b><br><a class="whatsapp" href="${whatsappUrl(c?.contato||'')}" target="_blank">${escapeHtml(c?.contato||'')}</a></p><p>Total: <b>${money(total)}</b><br>Recebido: <b>${money(rec)}</b><br>Falta: <b>${money(rest)}</b></p><h3>Histórico</h3><div class="movement-list">${history}</div>${rest>0?`<button class="primary add-movement" id="addMovement">+ Adicionar movimentação</button>`:'<div class="paid-badge">Pagamento quitado</div>'}`);
+ if($('#addMovement'))$('#addMovement').onclick=()=>addMovimento(q.id);
+}
+function addMovimento(id){
+ const q=db.orcamentos.find(x=>x.id===id);if(!q)return;const total=quoteTotal(q),rest=Math.max(0,total-received(q));
+ openModal('Adicionar movimentação',`<form id="movForm"><p>Falta receber: <b>${money(rest)}</b></p><label>Data</label><input id="movData" type="date" value="${new Date().toISOString().slice(0,10)}"><label>Forma</label><select id="movPay"><option value="">Selecione</option><option>PIX</option><option>Espécie</option><option>Débito</option><option>Crédito à vista</option><option>Crédito parcelado</option></select><label>Parcelas</label><input id="movParc" type="number" min="1" value="1"><label>Valor</label><input id="movValor" type="number" min="0.01" max="${rest}" step="0.01" required><div class="form-actions"><button type="submit" style="background:#17324d;color:white">Adicionar</button></div></form>`);
+ $('#movForm').onsubmit=e=>{e.preventDefault();const valor=Number($('#movValor').value)||0;if(!$('#movPay').value||valor<=0||valor>rest){alert('Informe forma e valor válido.');return}normalizeFinance(q).push({id:crypto.randomUUID(),data:new Date($('#movData').value+'T12:00:00').toISOString(),metodo:$('#movPay').value,parcelas:Number($('#movParc').value)||1,valor});if(received(q)>=total)q.status='concluido';save();$('#modal').classList.add('hidden');render()}
+}
 function toggleQuoteDetail(id){const el=document.getElementById('detail-'+id);if(el)el.classList.toggle('hidden')}
-function whatsappUrl(v){const digits=String(v||'').replace(/\D/g,'');return digits?`https://wa.me/${digits}`:'#'}
-function telUrl(v){const digits=String(v||'').replace(/\D/g,'');return digits?`tel:${digits}`:'#'}
+function whatsappUrl(v){const d=String(v||'').replace(/\D/g,'');return d?`https://wa.me/${d}`:'#'}
+function telUrl(v){const d=String(v||'').replace(/\D/g,'');return d?`tel:${d}`:'#'}
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function escapeAttr(v){return escapeHtml(v)}
 function firstName(name){return String(name||'Cliente').trim().split(/\s+/)[0]||'Cliente'}
 function pdfEscape(v){return String(v??'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
 function pdfTextSafe(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0000-\u001F\u00A0]/g,' ').replace(/[^\x20-\x7E]/g,' ')}
-function wrapPdfText(text,max){const words=pdfTextSafe(text).trim().split(/\s+/).filter(Boolean),lines=[];let line='';words.forEach(w=>{const test=(line+' '+w).trim();if(test.length>max){if(line)lines.push(line);line=w}else line=test});if(line)lines.push(line);return lines}
+function wrapPdfText(text,max){const words=pdfTextSafe(text).trim().split(/\s+/).filter(Boolean),lines=[];let line='';words.forEach(w=>{const t=(line+' '+w).trim();if(t.length>max){if(line)lines.push(line);line=w}else line=t});if(line)lines.push(line);return lines}
 function pdfBytes(s){const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i)&255;return out}
 function pdfConcat(arrays){let n=0;arrays.forEach(a=>n+=a.length);const out=new Uint8Array(n);let o=0;arrays.forEach(a=>{out.set(a,o);o+=a.length});return out}
-
 async function loadPdfImage(path){
   if(location.protocol==='file:') throw new Error('Abra pelo bat');
   const res=await fetch(new URL(path, document.baseURI).href,{cache:'no-store'});
@@ -131,7 +149,6 @@ async function loadPdfImage(path){
   const deflate=async b=>{ const cs=new CompressionStream('deflate'); return new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(cs)).arrayBuffer()); };
   return {w,h,rgb:await deflate(rgb),alpha:await deflate(alpha)};
 }
-
 async function gerarPdfOrcamento(q){
  const c=db.clientes.find(x=>x.id===q.clienteId)||{};
  const total=quoteTotal(q), dataStr=new Date(q.data||Date.now()).toLocaleDateString('pt-BR'), validade=Number(q.validade)||15;
@@ -187,7 +204,6 @@ async function gerarPdfOrcamento(q){
 
  const streamBytes=pdfBytes(content.join('\n'));
 
- // OBJETOS SEM BURACO
  let objs={}; let objData={}; let nextId=1;
  const catalogId=nextId++; const pagesId=nextId++; const pageId=nextId++; const contentId=nextId++; const font1Id=nextId++; const font2Id=nextId++;
  let logoRgbId=null, logoAlphaId=null, zapRgbId=null, zapAlphaId=null;
@@ -227,7 +243,6 @@ async function gerarPdfOrcamento(q){
  finalParts.push(pdfBytes(xref));
  return new Blob(finalParts,{type:'application/pdf'});
 }
-
 async function compartilharOrcamento(id){
  try{
    const q=db.orcamentos.find(x=>x.id===id);
