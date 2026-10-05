@@ -17,6 +17,7 @@
       <label>Usuário</label><input id="loginUser" autocomplete="username" required>
       <label>Senha</label><input id="loginPass" type="password" autocomplete="current-password" required>
       <button class="primary login-button" type="submit">Entrar</button>
+      <button type="button" id="forgotPassword" class="forgot-password">Esqueci a senha</button>
       <div id="loginError" class="error"></div>
     </form>
   </div>
@@ -34,9 +35,9 @@
     <h1>Início</h1>
     <div class="grid"><button class="card" data-go="clientes"><b>Clientes</b><span>Cadastrar e consultar clientes</span></button><button class="card" data-go="orcamentos"><b>Orçamentos</b><span>Criar e acompanhar propostas</span></button><button class="card" data-go="financeiro"><b>Financeiro</b><span>Acompanhar recebimentos</span></button></div>
   </section>
-  <section id="clientes" class="screen"><div class="section-head"><h1>Clientes</h1><button class="primary" id="novoCliente">+ Novo</button></div><div id="clientesLista" class="list"></div></section>
-  <section id="orcamentos" class="screen"><div class="section-head"><h1>Orçamentos</h1><button class="primary" id="novoOrcamento">+ Novo</button></div><div class="toolbar"><button id="filtroBtn" class="secondary">Filtro</button><div id="filtros" class="filters hidden"><button data-filter="todos">Todos</button><button data-filter="pendente">🟨 Pendente</button><button data-filter="aprovado">🟩 Aprovado</button><button data-filter="cancelado">🟥 Cancelado</button><button data-filter="concluido">🟦 Concluído</button><button data-filter="vencido">⬜ Vencido</button></div></div><div id="orcamentosLista" class="list"></div></section>
-  <section id="financeiro" class="screen"><div class="section-head"><h1>Financeiro</h1></div><div class="tabs"><button class="tab active" data-tab="abertos">Abertos</button><button class="tab" data-tab="finalizados">Finalizados</button><button class="tab" data-tab="relatorio">Relatório</button></div><div id="financeiroLista" class="list"></div></section>
+  <section id="clientes" class="screen"><div class="section-head"><h1>Clientes</h1><button class="primary" id="novoCliente">+ Novo</button></div><div class="search-wrap"><input id="buscarClientes" type="search" placeholder="🔎 Buscar cliente..."></div><div id="clientesLista" class="list compact-list"></div></section>
+  <section id="orcamentos" class="screen"><div class="section-head"><h1>Orçamentos</h1><button class="primary" id="novoOrcamento">+ Novo</button></div><div class="toolbar"><input id="buscarOrcamentos" class="search-input" type="search" placeholder="🔎 Buscar orçamento..."><button id="filtroBtn" class="secondary">Filtro</button><div id="filtros" class="filters hidden"><button data-filter="todos">Todos</button><button data-filter="pendente">🟨 Pendente</button><button data-filter="aprovado">🟩 Aprovado</button><button data-filter="cancelado">🟥 Cancelado</button><button data-filter="concluido">🟦 Concluído</button><button data-filter="vencido">⬜ Vencido</button></div></div><div id="orcamentosLista" class="list"></div></section>
+  <section id="financeiro" class="screen"><div class="section-head"><h1>Financeiro</h1></div><div class="search-wrap"><input id="buscarFinanceiro" type="search" placeholder="🔎 Buscar orçamento ou cliente..."></div><div class="tabs"><button class="tab active" data-tab="abertos">Abertos</button><button class="tab" data-tab="finalizados">Finalizados</button><button class="tab" data-tab="relatorio">Relatório</button></div><div id="financeiroLista" class="list compact-list"></div></section>
 </main>
 <nav class="bottom-nav"><button data-go="home">⌂<small>Início</small></button><button data-go="clientes">♙<small>Clientes</small></button><button data-go="orcamentos">▣<small>Orçamentos</small></button><button data-go="financeiro">R$<small>Financeiro</small></button></nav>
 </div>

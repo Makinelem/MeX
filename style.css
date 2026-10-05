@@ -179,3 +179,31 @@ body[data-theme="escuro"] .paid-badge{background:#1e2f4a!important;color:#8ab4ff
 }
 
 .list-card.cli-vermelho{border-left-color:#e53935!important}
+
+/* ===== Ajustes de busca e inserção de item ===== */
+.search-wrap{margin:0 0 10px}
+.search-wrap input,.search-input{width:100%;height:42px;padding:10px 13px;border:1px solid #ccd3da;border-radius:10px;background:#fff;font-size:15px}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.toolbar .search-input{flex:1;min-width:180px}
+.toolbar #filtroBtn{margin-left:auto;flex:0 0 auto}
+.toolbar .filters{width:100%;order:3}
+.compact-list{gap:7px}
+.compact-list .list-card{padding:13px 15px}
+.client-card .actions{margin-top:8px}
+.item-row-card{padding:12px 14px!important}
+.item-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.item-fields{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}
+.item-fields label{margin-top:8px}
+.forgot-password{display:block;margin:10px auto 0;border:0;background:none;color:#17324d;text-decoration:underline;cursor:pointer;font-weight:700;font-size:14px}
+.item-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:60;display:flex;align-items:center;justify-content:center;padding:18px}
+.item-modal-box{width:min(520px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 15px 45px rgba(0,0,0,.35);padding:18px}
+.item-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.item-modal-head h3{margin:0;font-size:20px}
+.item-modal-body{padding-top:2px}
+.item-modal-body .form-actions{margin-top:18px}
+.item-modal-body .form-actions button{min-height:44px}
+body[data-theme="medio"] .search-wrap input,body[data-theme="medio"] .search-input{background:#d7dde5;color:#17212b}
+body[data-theme="escuro"] .search-wrap input,body[data-theme="escuro"] .search-input{background:#27333e;color:#fff;border-color:#46535f}
+body[data-theme="escuro"] .item-modal-box{background:#1d2731;color:#edf2f6}
+body[data-theme="escuro"] .item-modal-box input,body[data-theme="escuro"] .item-modal-box textarea{background:#27333e;color:#fff;border-color:#46535f}
+body[data-theme="escuro"] .forgot-password{color:#8ab4ff}
