@@ -45,8 +45,37 @@ function openCliente(id=null){
 }
 function clienteDetalhes(id){ const c=db.clientes.find(x=>x.id===id);if(!c)return; const wa=whatsappUrl(c.contato),tel=telUrl(c.contato); openModal('Dados do cliente',`<div class="client-detail"><h3>${escapeHtml(c.nome)}</h3><div><b>Contato:</b> ${escapeHtml(c.contato||'-')}</div><div><b>Endereço:</b> ${escapeHtml(c.endereco||'-')}</div><div><b>CEP:</b> ${escapeHtml(c.cep||'-')}</div><div><b>CPF/CNPJ:</b> ${escapeHtml(c.doc||'-')}</div><div class="contact-actions">${c.contato?`<a class="contact-btn whatsapp" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a><a class="contact-btn call" href="${tel}">☎ Chamada</a>`:''}</div><div class="form-actions"><button onclick="openCliente('${id}')">✎ Editar</button><button class="danger" onclick="delCliente('${id}')">🗑 Excluir</button></div></div>`);}
 function delCliente(id){ const c=db.clientes.find(x=>x.id===id);if(!c)return; if(confirm(`Excluir o cliente ${c.nome}?`)){db.clientes=db.clientes.filter(x=>x.id!==id);save();$('#modal').classList.add('hidden');render()}}
-function renderClientes(){ $('#clientesLista').innerHTML=db.clientes.map(c=>`<div class="list-card client-card" onclick="clienteDetalhes('${c.id}')"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a><div class="actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button><span class="spacer"></span><button onclick="novoOrc('${c.id}')">+ Novo orçamento</button></div></div>`).join('')||'<div class="list-card">Nenhum cliente cadastrado.</div>'}
-$('#novoOrcamento').onclick=()=>novoOrc();
+function clienteStatus(id){
+  const orcs = db.orcamentos.filter(q=>q.clienteId===id);
+  // vermelho = tem débito (aprovado/concluido e não pago 100%)
+  const temDebito = orcs.some(q => (q.status==='aprovado' || q.status==='concluido') && paymentPercent(q) < 100);
+  if(temDebito) return 'vermelho';
+
+  // verde = quitado há menos de 10 dias
+  const agora = Date.now();
+  const temVerde = orcs.some(q=>{
+    if(!isPaid(q)) return false;
+    const mov = normalizeFinance(q).slice().sort((a,b)=> new Date(b.data)-new Date(a.data))[0];
+    const dataQuitado = mov? new Date(mov.data).getTime() : new Date(q.data).getTime();
+    const dias = Math.floor((agora - dataQuitado)/86400000);
+    return dias <= 10;
+  });
+  if(temVerde) return 'verde';
+
+  // laranja = tem pendente ou aprovado (sem débito)
+  const temPendenteAprovado = orcs.some(q => q.status==='pendente' || q.status==='aprovado');
+  if(temPendenteAprovado) return 'laranja';
+
+  // cinza = resto
+  return 'cinza';
+}
+
+function renderClientes(){
+  $('#clientesLista').innerHTML=db.clientes.map(c=>{
+    const status = clienteStatus(c.id);
+    return `<div class="list-card client-card cli-${status}" onclick="clienteDetalhes('${c.id}')"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a><div class="actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button><span class="spacer"></span><button onclick="novoOrc('${c.id}')">+ Novo orçamento</button></div></div>`
+  }).join('')||'<div class="list-card">Nenhum cliente cadastrado.</div>'
+}
 function novoOrc(clienteId=null,id=null){
  const q=db.orcamentos.find(x=>x.id===id)||{clienteId:clienteId||'',items:[],validade:15,status:'pendente'};
  if(q.status!=='pendente'&&id){openModal('Aviso','<p>Somente orçamentos pendentes podem ser editados.</p>');return}
