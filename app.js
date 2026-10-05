@@ -187,10 +187,23 @@ async function gerarPdfOrcamento(q){
  text(t4,pdfRightX(t4,rightEdge,8.5,false),765,8.5,false);
  line(30,748,565,748);
  text('Destinatario/ Cliente:',30,731,9.5,true);
- text('Nome/ Razao Social: '+(c.nome||'-'),30,720,8.5,true);
- text('CPF/ CNPJ: '+maskCpfCnpj(c.doc||'-'),30,710,8.5);
- text('Endereco (Opcional): '+(c.endereco||'-'),30,700,8.5);
- text('Telefone/ Contato: '+maskPhone(c.contato||'-'),30,690,8.5);
+  // Cliente - só o dado em negrito
+ let y=720;
+ const l1='Nome/ Razao Social: ';
+ text(l1,30,y,8.5,false);
+ text(c.nome||'-',30+pdfTextWidthApprox(l1,8.5,false),y,8.5,true);
+ y-=10;
+ const l2='CPF/ CNPJ: ';
+ text(l2,30,y,8.5,false);
+ text(maskCpfCnpj(c.doc||'-'),30+pdfTextWidthApprox(l2,8.5,false),y,8.5,true);
+ y-=10;
+ const l3='Endereco (Opcional): ';
+ text(l3,30,y,8.5,false);
+ text(c.endereco||'-',30+pdfTextWidthApprox(l3,8.5,false),y,8.5,true);
+ y-=10;
+ const l4='Telefone/ Contato: ';
+ text(l4,30,y,8.5,false);
+ text(maskPhone(c.contato||'-'),30+pdfTextWidthApprox(l4,8.5,false),y,8.5,true);
  line(30,678,565,678);
  rect(30,623,535,17);
  text('ITEM',36,628,8.2,true); text('DESCRICAO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
