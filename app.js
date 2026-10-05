@@ -21,7 +21,6 @@ function randomQuoteNumber(used=[]){
 function normalizeQuoteNumbers(){
  const used=[];
  (db.orcamentos||[]).forEach(q=>{
-   // Números antigos sequenciais também passam para o novo padrão aleatório.
    q.numero=randomQuoteNumber(used);
    used.push(q.numero);
  });
@@ -175,11 +174,9 @@ function promptPaidDeletion(id){
  $('#paidDeleteNo').onclick=()=>{q.pagoExclusaoRespondida=true;q.pagoExclusaoLiberada=true;save();paidDeletePromptOpen=false;$('#modal').classList.add('hidden');renderOrcamentos()};
  $('#paidDeleteYes').onclick=()=>{paidDeletePromptOpen=false;$('#modal').classList.add('hidden');db.orcamentos=db.orcamentos.filter(x=>x.id!==id);save();render()};
 }
-
 function statusQ(id,s){const q=db.orcamentos.find(x=>x.id===id);if(q){q.status=s;save();render()}}
 function delQ(id){if(confirm('Excluir este orçamento?')){db.orcamentos=db.orcamentos.filter(x=>x.id!==id);save();render()}}
 function quoteTotal(q){return(q.items||[]).reduce((s,x)=>s+(Number(x.qtd)||0)*(Number(x.uni)||0),0)}
-
 function normalizeFinance(q){
  if(!q.movimentos){
    const f=q.financeiro;
@@ -195,7 +192,6 @@ function renderFinanceiro(){
  const qs=activeFinanceTab==='finalizados'?all.filter(q=>paymentPercent(q)>=100):activeFinanceTab==='relatorio'?all:all.filter(q=>paymentPercent(q)<100);
  $('#financeiroLista').innerHTML=qs.map(q=>{const c=db.clientes.find(x=>x.id===q.clienteId),p=paymentPercent(q);return `<div class="list-card finance-card ${financeClass(p)}" onclick="financeiro('${q.id}')"><b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'')}</div><a class="whatsapp" href="${whatsappUrl(c?.contato||'')}" onclick="event.stopPropagation()">☎ ${escapeHtml(c?.contato||'')}</a></div>`}).join('')||'<div class="list-card">Nenhum orçamento nesta categoria.</div>'
 }
-
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeFinanceTab=b.dataset.tab;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));renderFinanceiro()});
 function financeiro(id){
  const q=db.orcamentos.find(x=>x.id===id);if(!q)return;const c=db.clientes.find(x=>x.id===q.clienteId),total=quoteTotal(q),mov=normalizeFinance(q),rec=received(q),rest=Math.max(0,total-rec);
@@ -208,17 +204,17 @@ function addMovimento(id){
  openModal('Adicionar movimentação',`<form id="movForm"><p>Falta receber: <b>${money(rest)}</b></p><label>Data</label><input id="movData" type="date" value="${new Date().toISOString().slice(0,10)}"><label>Forma de pagamento</label><select id="movPay"><option value="">Selecione</option><option>PIX</option><option>Espécie</option><option>Débito</option><option>Crédito à vista</option><option>Crédito parcelado</option></select><label>Parcelas (se aplicável)</label><input id="movParc" type="number" min="1" value="1"><label>Valor recebido</label><input id="movValor" type="number" min="0.01" max="${rest}" step="0.01" required><div class="form-actions"><button type="submit" style="background:#17324d;color:white">Adicionar</button></div></form>`);
  $('#movForm').onsubmit=e=>{e.preventDefault();const valor=Number($('#movValor').value)||0;if(!$('#movPay').value||valor<=0||valor>rest){alert('Informe uma forma de pagamento e um valor válido.');return}normalizeFinance(q).push({id:crypto.randomUUID(),data:new Date($('#movData').value+'T12:00:00').toISOString(),metodo:$('#movPay').value,parcelas:Number($('#movParc').value)||1,valor});if(received(q)>=total)q.status='concluido';save();$('#modal').classList.add('hidden');render()}
 }
-
 function toggleQuoteDetail(id){const el=document.getElementById('detail-'+id);if(el)el.classList.toggle('hidden')}
 function whatsappUrl(v){const digits=String(v||'').replace(/\D/g,'');return digits?`https://wa.me/${digits}`:'#'}
 function telUrl(v){const digits=String(v||'').replace(/\D/g,'');return digits?`tel:${digits}`:'#'}
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function escapeAttr(v){return escapeHtml(v)}
 
+// --- PDF HELPERS (unicos, sem duplicata) ---
 function firstName(name){return String(name||'Cliente').trim().split(/\s+/)[0]||'Cliente'}
 function pdfEscape(v){return String(v??'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
-function pdfTextSafe(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
-function wrapPdfText(text,max){const words=pdfTextSafe(text).split(/\s+/);const lines=[];let line='';words.forEach(w=>{if((line+' '+w).trim().length>max){if(line)lines.push(line);line=w}else line=(line+' '+w).trim()});if(line)lines.push(line);return lines}
+function pdfTextSafe(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0000-\u001F]/g,' ')}
+function wrapPdfText(text,max){const words=pdfTextSafe(text).trim().split(/\s+/).filter(Boolean),lines=[];let line='';words.forEach(w=>{const test=(line+' '+w).trim();if(test.length>max){if(line)lines.push(line);line=w}else line=test});if(line)lines.push(line);return lines}
 function pdfBytes(s){const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i)&255;return out}
 function pdfConcat(parts){let n=0;parts.forEach(p=>n+=p.length);const out=new Uint8Array(n);let o=0;parts.forEach(p=>{out.set(p,o);o+=p.length});return out}
 const HELV_WIDTHS={A:.667,B:.667,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.5,K:.667,L:.556,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.556,c:.5,d:.556,e:.556,f:.278,g:.556,h:.556,i:.222,j:.222,k:.5,l:.222,m:.833,n:.556,o:.556,p:.556,q:.556,r:.333,s:.5,t:.278,u:.556,v:.5,w:.722,x:.5,y:.5,z:.5,'0':.556,'1':.556,'2':.556,'3':.556,'4':.556,'5':.556,'6':.556,'7':.556,'8':.556,'9':.556,' ':.278,':':.278,'/':.278,'-':.333,'.':.278,'°':.4,'º':.365};
@@ -226,54 +222,25 @@ const HELV_BOLD_WIDTHS={A:.722,B:.722,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,
 function pdfTextWidthApprox(v,size=9,bold=false){const map=bold?HELV_BOLD_WIDTHS:HELV_WIDTHS;return [...pdfTextSafe(v)].reduce((n,ch)=>n+(map[ch]??.5),0)*size}
 function pdfRightX(v,right,size=9,bold=false){return Math.max(0,right-pdfTextWidthApprox(v,size,bold))}
 function pdfCenterX(v,center,size=9,bold=false){return Math.max(0,center-pdfTextWidthApprox(v,size,bold)/2)}
-function pdfEscape(v){return String(v??'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)')}
-function pdfTextSafe(v){const s=String(v??'');return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0000-\u001F]/g,' ')}
-function wrapPdfText(text,max){const words=pdfTextSafe(text).trim().split(/\s+/).filter(Boolean),lines=[];let line='';words.forEach(w=>{const test=(line+' '+w).trim();if(test.length>max){if(line)lines.push(line);line=w}else line=test});if(line)lines.push(line);return lines}
-function pdfBytes(s){const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i)&255;return out}
 
-async function compressPdfBytes(bytes){
-  if(typeof CompressionStream==='function'){
-    const cs=new CompressionStream('deflate');
-    const stream=new Blob([bytes]).stream().pipeThrough(cs);
-    return new Uint8Array(await new Response(stream).arrayBuffer());
-  }
-  return bytes;
-}
-
-function b64ToUint8(b64){
- const bin=atob(b64); const out=new Uint8Array(bin.length);
- for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
- return out;
-}
-
-// As imagens do PDF são carregadas DIRETAMENTE do diretório do projeto.
-// Não há cópias embutidas, fallback ou redimensionamento da fonte.
-// O tamanho de exibição no PDF é definido pelo layout; a resolução original do PNG é preservada.
 async function loadPdfImage(path){
-  // O PDF lê o PNG como bytes diretamente do servidor local. Não usa Image, Canvas
-  // nem getImageData. Isso preserva a resolução e a transparência do arquivo original.
   if(location.protocol === 'file:'){
-    throw new Error(`O MeX foi aberto diretamente como arquivo (file://). Para o PDF acessar ${path} com a resolução original, feche esta janela e execute iniciar_meX.bat. O navegador bloqueia a leitura de arquivos locais pelo JavaScript.`);
+    throw new Error(`Abra pelo iniciar_meX.bat para ler ${path}`);
   }
   const src = new URL(path, document.baseURI).href;
-  let response;
-  try{
-    response = await fetch(src, {cache:'no-store'});
-  }catch(e){
-    throw new Error(`Não foi possível acessar ${path}. Execute iniciar_meX.bat e abra o endereço http://127.0.0.1:8765/.`);
-  }
-  if(!response.ok) throw new Error(`Não foi possível carregar ${path} (${response.status}). Verifique se ${path} está na mesma pasta do index.html.`);
+  const response = await fetch(src, {cache:'no-store'});
+  if(!response.ok) throw new Error(`Nao foi possivel carregar ${path} (${response.status})`);
   const bytes = new Uint8Array(await response.arrayBuffer());
   const sig = [137,80,78,71,13,10,26,10];
-  for(let i=0;i<8;i++) if(bytes[i]!==sig[i]) throw new Error(`${path} não é um PNG válido.`);
+  for(let i=0;i<8;i++) if(bytes[i]!==sig[i]) throw new Error(`${path} nao e PNG valido`);
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let pos=8, width=0, height=0, bitDepth=0, colorType=0, interlace=0;
   let idat=[];
   while(pos+8<=bytes.length){
     const len=dv.getUint32(pos); pos+=4;
     const type=String.fromCharCode(bytes[pos],bytes[pos+1],bytes[pos+2],bytes[pos+3]); pos+=4;
-    if(pos+len+4>bytes.length) throw new Error(`PNG ${path} está incompleto.`);
-    const data=bytes.subarray(pos,pos+len); pos+=len; pos+=4; // CRC
+    if(pos+len+4>bytes.length) throw new Error(`PNG ${path} incompleto`);
+    const data=bytes.subarray(pos,pos+len); pos+=len; pos+=4;
     if(type==='IHDR'){
       width=dv.getUint32(data.byteOffset);
       height=dv.getUint32(data.byteOffset+4);
@@ -281,19 +248,16 @@ async function loadPdfImage(path){
     }else if(type==='IDAT') idat.push(data);
     else if(type==='IEND') break;
   }
-  if(!width || !height) throw new Error(`PNG ${path} sem dimensões válidas.`);
+  if(!width ||!height) throw new Error(`PNG ${path} sem dimensoes`);
   if(bitDepth!==8 || colorType!==6 || interlace!==0){
-    throw new Error(`${path} precisa ser PNG RGBA 8-bit sem entrelaçamento. O arquivo enviado pelo projeto deve permanecer em PNG transparente.`);
+    throw new Error(`${path} precisa ser PNG RGBA 8-bit`);
   }
   const compressed=new Uint8Array(idat.reduce((n,a)=>n+a.length,0));
   let at=0; for(const a of idat){compressed.set(a,at);at+=a.length;}
-  if(typeof DecompressionStream!=='function') throw new Error('Este navegador não suporta a leitura direta do PNG. Use uma versão atual do Chrome/Edge.');
   const ds=new DecompressionStream('deflate');
   const raw=new Uint8Array(await new Response(new Blob([compressed]).stream().pipeThrough(ds)).arrayBuffer());
   const stride=width*4, expected=(stride+1)*height;
-  if(raw.length<expected) throw new Error(`Dados internos de ${path} estão incompletos.`);
   const rgba=new Uint8Array(width*height*4);
-  const pa=(x)=>x<0?0:x;
   for(let y=0;y<height;y++){
     const srcRow=y*(stride+1), filter=raw[srcRow];
     const row=srcRow+1, out=y*stride, prev=(y-1)*stride;
@@ -310,7 +274,7 @@ async function loadPdfImage(path){
       else if(filter===4){
         const p=a+b-c, pa_=Math.abs(p-a), pb_=Math.abs(p-b), pc_=Math.abs(p-c);
         const pr=pa_<=pb_&&pa_<=pc_?a:(pb_<=pc_?b:c); z=(v+pr)&255;
-      }else throw new Error(`Filtro PNG ${filter} não suportado em ${path}.`);
+      }else throw new Error(`Filtro PNG ${filter} nao suportado`);
       rgba[out+x]=z;
     }
   }
@@ -329,12 +293,11 @@ async function gerarPdfOrcamento(q){
  const total=quoteTotal(q), data=new Date(q.data||Date.now()).toLocaleDateString('pt-BR'), validade=Number(q.validade)||15;
  const logo=await loadPdfImage('logo.png');
  const zap=await loadPdfImage('zap.png');
- const content=[]; const pageW=595,pageH=842;
+ const content=[];
  const text=(s,x,y,size=9,bold=false)=>content.push(`BT /${bold?'F2':'F1'} ${size} Tf 0 g ${x.toFixed(2)} ${y.toFixed(2)} Td (${pdfEscape(pdfTextSafe(s))}) Tj ET`);
  const line=(x1,y1,x2,y2,gray='0.82')=>content.push(`${gray} G 0.65 w ${x1} ${y1} m ${x2} ${y2} l S`);
  const rect=(x,y,w,h,fill='0.92',stroke=true)=>{content.push(`${fill} g ${x} ${y} ${w} ${h} re f`);if(stroke)content.push(`0.82 G 0.65 w ${x} ${y} ${w} ${h} re S`)};
  const img=(name,w,h,x,y)=>content.push(`q ${w} 0 0 ${h} ${x} ${y} cm /${name} Do Q`);
- // CABEÇALHO: logo | empresa | orçamento. A primeira barra fica próxima ao bloco da empresa.
  if(logo) img('Logo',110,45,30,775);
  line(175,775,175,820); line(430,775,430,820);
  const companyX=190;
@@ -344,91 +307,88 @@ async function gerarPdfOrcamento(q){
  const companyContact='(86) 98813-6559';
  text(companyContact,companyX,768,8.5);
  if(zap) img('Zap',11,11,companyX+pdfTextWidthApprox(companyContact,8.5,false)+4,766);
- const budgetTitle='ORÇAMENTO/PEDIDO',budgetNo='N°: '+q.numero,budgetDate='Emissão: '+data,budgetValidity='Validade: '+validade+' dias';
+ const budgetTitle='ORCAMENTO/PEDIDO',budgetNo='N: '+q.numero,budgetDate='Emissao: '+data,budgetValidity='Validade: '+validade+' dias';
  const budgetRight=555;
  text(budgetTitle,pdfRightX(budgetTitle,budgetRight,9.5,true),807,9.5,true);
  text(budgetNo,pdfRightX(budgetNo,budgetRight,8.5,true),793,8.5,true);
  text(budgetDate,pdfRightX(budgetDate,budgetRight,8.5),779,8.5);
  text(budgetValidity,pdfRightX(budgetValidity,budgetRight,8.5),765,8.5);
- // Espaço proposital entre o cabeçalho e a primeira barra horizontal.
  line(30,748,565,748);
- // CLIENTE
- text('Destinatário/ Cliente:',30,731,9.5,true);
+ text('Destinatario/ Cliente:',30,731,9.5,true);
  const clientLine=(label,value,y)=>{const safe=String(value||'-');text(label,30,y,8.5,false);text(safe,30+pdfTextWidthApprox(label,8.5,false)+3,y,8.5,true)};
- clientLine('Nome/ Razão Social: ',c.nome,714);
+ clientLine('Nome/ Razao Social: ',c.nome,714);
  clientLine('CPF/ CNPJ: ',maskCpfCnpj(c.doc),700);
- clientLine('Endereço (Opcional): ',c.endereco,686);
+ clientLine('Endereco (Opcional): ',c.endereco,686);
  clientLine('Telefone/ Contato: ',maskPhone(c.contato),672);
  line(30,653,565,653);
- // TABELA
  const tableX=30,tableW=535,headerY=623,headerH=17; rect(tableX,headerY,tableW,headerH,'0.92',false);
- text('ITEM',36,628,8.2,true); text('DESCRIÇÃO DO PRODUTO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
+ text('ITEM',36,628,8.2,true); text('DESCRICAO DO PRODUTO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
  let rowTop=headerY; const items=q.items||[];
  items.forEach((it,i)=>{const descLines=wrapPdfText(it.desc||'',62),rowH=Math.max(31,descLines.length*7+20),bottom=rowTop-rowH; line(tableX,bottom,tableX+tableW,bottom,'0.88'); text(String(i+1),35,rowTop-14,8.8,true); text(it.nome||'',75,rowTop-14,8.8,true); descLines.slice(0,6).forEach((d,k)=>text(d,75,rowTop-24-k*7,8.1,false)); text(String(it.qtd??0),370,rowTop-14,8.8); text(money(it.uni),425,rowTop-14,8.8); text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8); rowTop=bottom});
  if(!items.length){line(tableX,rowTop-35,tableX+tableW,rowTop-35,'0.88');text('-',75,rowTop-14,8.8)}
- // RODAPÉ
  const footerY=47,footerH=33; rect(30,footerY,330,footerH,'0.92',true); rect(370,footerY,195,footerH,'0.92',true);
- text('Este documento é uma proposta comercial sujeita a aprovação.',40,69,7.5); text('Garantia de fábrica de acordo com o especificado no contrato de execução.',40,56,7.5);
- const totalLabel='VALOR TOTAL DO ORÇAMENTO', totalValue=money(total); const totalRight=555;
+ text('Este documento e uma proposta comercial sujeita a aprovacao.',40,69,7.5); text('Garantia de fabrica de acordo com o especificado no contrato de execucao.',40,56,7.5);
+ const totalLabel='VALOR TOTAL DO ORCAMENTO', totalValue=money(total); const totalRight=555;
  text(totalLabel,pdfRightX(totalLabel,totalRight,8,true),69,8,true); text(totalValue,pdfRightX(totalValue,totalRight,13.5,true),52,13.5,true);
  if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){const wm='PAGO',wmSize=86,wmX=pdfCenterX(wm,298,wmSize);content.push('q');content.push('1 0 0 rg');content.push(`BT /F2 ${wmSize} Tf 0.7071 0.7071 -0.7071 0.7071 ${wmX} 355 Tm (${pdfEscape(wm)}) Tj ET`);content.push('Q')}
- const stream=content.join('\n');
- const objs=[]; objs[1]='<< /Type /Catalog /Pages 2 0 R >>'; objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
- const xobjParts=`/Logo 7 0 R /Zap 9 0 R`;
- objs[3]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /ProcSet [/PDF /Text /ImageC] /Font << /F1 5 0 R /F2 6 0 R >> /XObject << ${xobjParts} >> >> /Contents 4 0 R >>`;
- const contentBytes=pdfBytes(stream);
- objs[4]=`<< /Length ${contentBytes.length} >>\nstream\n`;
- objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
- objs[6]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
- // 7/8: RGB das imagens; 9/10: máscaras de transparência (alpha).
- objs[7]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ${logo.filter} /SMask 8 0 R /Length ${logo.rgb.length} >>\nstream\n`;
- objs[8]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter ${logo.filter} /Length ${logo.alpha.length} >>\nstream\n`;
- objs[9]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ${zap.filter} /SMask 10 0 R /Length ${zap.rgb.length} >>\nstream\n`;
- objs[10]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter ${zap.filter} /Length ${zap.alpha.length} >>\nstream\n`;
- const objBytes={
-   4:new Uint8Array([...pdfBytes(objs[4]),...contentBytes,...pdfBytes('endstream')]),
-   7:new Uint8Array([...pdfBytes(objs[7]),...logo.rgb,...pdfBytes('endstream')]),
-   8:new Uint8Array([...pdfBytes(objs[8]),...logo.alpha,...pdfBytes('endstream')]),
-   9:new Uint8Array([...pdfBytes(objs[9]),...zap.rgb,...pdfBytes('endstream')]),
-   10:new Uint8Array([...pdfBytes(objs[10]),...zap.alpha,...pdfBytes('endstream')])
- };
- let parts=[pdfBytes('%PDF-1.4\n')],offsets=[0],offset=parts[0].length;
- for(let i=1;i<=10;i++){
-   let b;
-   if(i===4||i===7||i===8||i===9||i===10) b=new Uint8Array([...pdfBytes(i+' 0 obj\n'),...objBytes[i],...pdfBytes('\nendobj\n')]);
-   else b=pdfBytes(i+' 0 obj\n'+objs[i]+'\nendobj\n');
-   offsets[i]=offset;parts.push(b);offset+=b.length;
+
+ const streamStr = content.join('\n');
+ const streamBytes = pdfBytes(streamStr);
+
+ const header = pdfBytes('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+ let parts=[header];
+ let offsets={};
+ let offset=header.length;
+ function pushObj(num, dict, data){
+   const head = pdfBytes(num+' 0 obj\n'+dict+'\nstream\n');
+   const tail = pdfBytes('\nendstream\nendobj\n');
+   const full = data? pdfConcat([head, data, tail]) : pdfBytes(num+' 0 obj\n'+dict+'\nendobj\n');
+   offsets[num]=offset;
+   parts.push(full);
+   offset+=full.length;
  }
- const xref=offset;parts.push(pdfBytes('xref\n0 11\n0000000000 65535 f \n'+offsets.slice(1).map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size 11 /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF'));
- const totalBytes=parts.reduce((n,p)=>n+p.length,0); const pdf=new Uint8Array(totalBytes); let at=0; for(const p of parts){pdf.set(p,at);at+=p.length;} return new Blob([pdf],{type:'application/pdf'});
+ function pushObjSimple(num, dict){
+   const b=pdfBytes(num+' 0 obj\n'+dict+'\nendobj\n');
+   offsets[num]=offset; parts.push(b); offset+=b.length;
+ }
+
+ pushObj(4, `<< /Length ${streamBytes.length} >>`, streamBytes);
+ pushObjSimple(1,'<< /Type /Catalog /Pages 2 0 R >>');
+ pushObjSimple(2,'<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+ pushObjSimple(3,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> /XObject << /Logo 7 0 R /Zap 9 0 R >> >> /Contents 4 0 R >>`);
+ pushObjSimple(5,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+ pushObjSimple(6,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+ pushObj(7, `<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ${logo.filter} /SMask 8 0 R /Length ${logo.rgb.length} >>`, logo.rgb);
+ pushObj(8, `<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter ${logo.filter} /Length ${logo.alpha.length} >>`, logo.alpha);
+ pushObj(9, `<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ${zap.filter} /SMask 10 0 R /Length ${zap.rgb.length} >>`, zap.rgb);
+ pushObj(10, `<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter ${zap.filter} /Length ${zap.alpha.length} >>`, zap.alpha);
+
+ const xrefPos=offset;
+ let xrefStr='xref\n0 11\n0000000000 65535 f \n';
+ for(let i=1;i<=10;i++){xrefStr+=String(offsets[i]).padStart(10,'0')+' 00000 n \n'}
+ xrefStr+=`trailer\n<< /Size 11 /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+ parts.push(pdfBytes(xrefStr));
+ return new Blob(parts,{type:'application/pdf'});
 }
 
 async function compartilharOrcamento(id){
  try{
    const q=db.orcamentos.find(x=>x.id===id);
-   if(!q) throw new Error('Orçamento não encontrado.');
+   if(!q) throw new Error('Orcamento nao encontrado.');
    const c=db.clientes.find(x=>x.id===q.clienteId)||{};
    const blob=await gerarPdfOrcamento(q);
-   if(!blob || blob.size<1000) throw new Error('O PDF não foi gerado corretamente.');
-   const nome=`Orçamento ${q.numero}, ${firstName(c.nome)}.pdf`;
-   const file=new File([blob],nome,{type:'application/pdf'});
-   // Em celulares/navegadores compatíveis, abre o compartilhamento nativo com o PDF anexado.
-   if(typeof navigator.share==='function'){
-     let podeCompartilhar=true;
-     if(typeof navigator.canShare==='function') podeCompartilhar=navigator.canShare({files:[file]});
-     if(podeCompartilhar){
-       try{await navigator.share({title:`Orçamento ${q.numero}`,text:`Orçamento Nº ${q.numero} - ${c.nome||''}`,files:[file]});return;}
-       catch(e){if(e?.name==='AbortError')return;}
-     }
+   if(!blob || blob.size<1000) throw new Error('PDF nao gerado.');
+   const nomeSafe=`Orcamento_${q.numero}_${firstName(c.nome).replace(/[^A-Za-z0-9]/g,'')}.pdf`;
+   const file=new File([blob],nomeSafe,{type:'application/pdf'});
+   if(navigator.canShare && navigator.canShare({files:[file]})){
+     try{await navigator.share({title:`Orcamento ${q.numero}`,text:`Orcamento Nº ${q.numero} - ${c.nome||''}`,files:[file]});return;}catch(e){if(e?.name==='AbortError')return;}
    }
-   // Fallback: sempre baixa um PDF real, inclusive em desktop ou quando o navegador
-   // não oferece compartilhamento de arquivos.
    const url=URL.createObjectURL(blob);
-   const a=document.createElement('a');a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();
-   setTimeout(()=>URL.revokeObjectURL(url),3000);
+   const a=document.createElement('a');a.href=url;a.download=nomeSafe;document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),6000);
  }catch(e){
    console.error('Erro ao compartilhar PDF:',e);
-   alert('Não foi possível gerar o PDF.\n\nDetalhe: '+(e?.message||e));
+   alert('Nao foi possivel gerar o PDF.\n\nDetalhe: '+(e?.message||e));
  }
 }
 
@@ -461,7 +421,6 @@ function openUserSettings(){
    alert('Dados de usuário atualizados.');
  };
 }
-
 function openSettings(){
  openModal('Ajustes',`<label>Tema</label><div class="theme-options"><button data-theme="claro">Claro</button><button data-theme="medio">Médio</button><button data-theme="escuro">Escuro</button></div><label>Fonte: Ajustar tamanho da fonte</label><input id="fontRange" type="range" min="90" max="125" step="5" value="${Number(localStorage.getItem('mex_font')||100)}"><div class="font-preview" id="fontPreview">Tamanho atual da fonte</div>`);
  document.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>setTheme(b.dataset.theme));$('#fontRange').oninput=e=>setFont(Number(e.target.value));
@@ -472,10 +431,8 @@ function loadPreferences(){setTheme(localStorage.getItem('mex_theme')||'claro');
 
 $('#loginForm').onsubmit=e=>{e.preventDefault();login()};
 $('#loginPass').onkeydown=e=>{if(e.key==='Enter')login()};
-
 document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{$('#filtros').classList.add('hidden');renderOrcamentos(b.dataset.filter)});
 $('#filtroBtn').onclick=()=>$('#filtros').classList.toggle('hidden');
-
 function render(){renderClientes();renderOrcamentos();renderFinanceiro()}
 loadPreferences();
 if(isLogged())showApp();else showLogin();
