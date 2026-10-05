@@ -62,6 +62,17 @@ function openModal(title,html){$('#modalTitle').textContent=title;$('#modalBody'
 $('#fecharModal').onclick=()=>$('#modal').classList.add('hidden');
 $('#novoCliente').onclick=()=>openCliente();
 
+function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
+function maskCEP(v){const d=onlyDigits(v).slice(0,8);return d.length>5?d.slice(0,5)+'-'+d.slice(5):d}
+function maskPhone(v){const d=onlyDigits(v).slice(0,11);if(d.length<=10){return d.length>6?`(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`:d.length>2?`(${d.slice(0,2)}) ${d.slice(2)}`:d.length?`(${d}`:''}return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`}
+function maskDoc(v){const d=onlyDigits(v).slice(0,14);if(d.length<=11){return d.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2')}return d.replace(/(\d{2})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2')}
+function bindClientMasks(){
+ const contato=$('#cContato'),cep=$('#cCep'),doc=$('#cDoc');
+ if(contato){contato.value=maskPhone(contato.value);contato.oninput=()=>contato.value=maskPhone(contato.value)}
+ if(cep){cep.value=maskCEP(cep.value);cep.oninput=()=>cep.value=maskCEP(cep.value)}
+ if(doc){doc.value=maskDoc(doc.value);doc.oninput=()=>doc.value=maskDoc(doc.value)}
+}
+
 function openCliente(id=null){
  const c=db.clientes.find(x=>x.id===id)||{};
  openModal(id?'Editar cliente':'Novo cliente',`<form id="clienteForm">
@@ -72,6 +83,7 @@ function openCliente(id=null){
  <label>CPF/CNPJ</label><input id="cDoc" value="${escapeAttr(c.doc||'')}">
  <div class="form-actions"><button type="submit" style="background:#17324d;color:white">Salvar</button></div></form>`);
  $('#clienteForm').onsubmit=e=>{e.preventDefault();const x={id:c.id||crypto.randomUUID(),nome:$('#cNome').value.trim(),contato:$('#cContato').value.trim(),endereco:$('#cEndereco').value.trim(),cep:$('#cCep').value.trim(),doc:$('#cDoc').value.trim()};if(c.id)db.clientes=db.clientes.map(v=>v.id===c.id?x:v);else db.clientes.push(x);save();$('#modal').classList.add('hidden');render()};
+ bindClientMasks();
 }
 function clienteDetalhes(id){
  const c=db.clientes.find(x=>x.id===id);if(!c)return;
@@ -337,18 +349,18 @@ async function gerarPdfOrcamento(q){
  // Espaço proposital entre o cabeçalho e a primeira barra horizontal.
  line(30,748,565,748);
  // CLIENTE
- text('Destinatário/ Cliente:',30,731,9.5,true); text('Nome/ Razão Social: '+(c.nome||'-'),30,714,8.5); text('CPF/ CNPJ: '+(c.doc||'-'),30,700,8.5); text('Endereço (Opcional): '+(c.endereco||'-'),30,686,8.5); text('Telefone/ Contato: '+(c.contato||'-'),30,672,8.5); line(30,653,565,653);
+ text('Destinatário/ Cliente:',30,731,9.5,true); text('Nome/ Razão Social:',30,714,8.5,false); text(c.nome||'-',125,714,8.5,true); text('CPF/ CNPJ:',30,700,8.5,false); text(c.doc||'-',88,700,8.5,true); text('Endereço (Opcional):',30,686,8.5,false); text(c.endereco||'-',126,686,8.5,true); text('Telefone/ Contato:',30,672,8.5,false); text(c.contato||'-',112,672,8.5,true); line(30,653,565,653);
  // TABELA
- const tableX=30,tableW=535,headerY=623,headerH=24; rect(tableX,headerY,tableW,headerH,'0.92',false);
- text('ITEM',36,631,8.2,true); text('DESCRIÇÃO DO PRODUTO',75,631,8.2,true); text('QTD',370,631,8.2,true); text('VALOR UNI',425,631,8.2,true); text('VALOR TOTAL',495,631,8.2,true);
+ const tableX=30,tableW=535,headerY=623,headerH=17; rect(tableX,headerY,tableW,headerH,'0.92',false);
+ text('ITEM',36,630,8.2,true); text('DESCRIÇÃO DO PRODUTO',75,630,8.2,true); text('QTD',370,630,8.2,true); text('VALOR UNI',425,630,8.2,true); text('VALOR TOTAL',495,630,8.2,true);
  let rowTop=headerY; const items=q.items||[];
  items.forEach((it,i)=>{const descLines=wrapPdfText(it.desc||'',62),rowH=Math.max(31,descLines.length*7+20),bottom=rowTop-rowH; line(tableX,bottom,tableX+tableW,bottom,'0.88'); text(String(i+1),35,rowTop-14,8.8,true); text(it.nome||'',75,rowTop-14,8.8,true); descLines.slice(0,6).forEach((d,k)=>text(d,75,rowTop-24-k*7,8.1,false)); text(String(it.qtd??0),370,rowTop-14,8.8); text(money(it.uni),425,rowTop-14,8.8); text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8); rowTop=bottom});
  if(!items.length){line(tableX,rowTop-35,tableX+tableW,rowTop-35,'0.88');text('-',75,rowTop-14,8.8)}
  // RODAPÉ
- const footerY=47,footerH=55; rect(30,footerY,330,footerH,'0.92',true); rect(370,footerY,195,footerH,'0.92',true);
- text('Este documento é uma proposta comercial sujeita a aprovação.',40,81,7.5); text('Garantia de fábrica de acordo com o especificado no contrato de execução.',40,62,7.5);
+ const footerY=47,footerH=33; rect(30,footerY,330,footerH,'0.92',true); rect(370,footerY,195,footerH,'0.92',true);
+ text('Este documento é uma proposta comercial sujeita a aprovação.',40,69,7.5); text('Garantia de fábrica de acordo com o especificado no contrato de execução.',40,57,7.5);
  const totalLabel='VALOR TOTAL DO ORÇAMENTO', totalValue=money(total); const totalRight=555;
- text(totalLabel,pdfRightX(totalLabel,totalRight,8,true),81,8,true); text(totalValue,pdfRightX(totalValue,totalRight,13.5,true),59,13.5,true);
+ text(totalLabel,pdfRightX(totalLabel,totalRight,8,true),69,8,true); text(totalValue,pdfRightX(totalValue,totalRight,13.5,true),53,13.5,true);
  if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){const wm='PAGO',wmSize=86,wmX=pdfCenterX(wm,298,wmSize);content.push('q');content.push('1 0 0 rg');content.push(`BT /F2 ${wmSize} Tf 0.7071 0.7071 -0.7071 0.7071 ${wmX} 355 Tm (${pdfEscape(wm)}) Tj ET`);content.push('Q')}
  const stream=content.join('\n');
  const objs=[]; objs[1]='<< /Type /Catalog /Pages 2 0 R >>'; objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
