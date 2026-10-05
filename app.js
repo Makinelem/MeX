@@ -359,7 +359,7 @@ async function gerarPdfOrcamento(q){
  clientLine('CPF/ CNPJ: ',maskCpfCnpj(c.doc),702);
  clientLine('Endereço (Opcional): ',c.endereco,690);
  clientLine('Telefone/ Contato: ',maskPhone(c.contato),678);
- line(30,659,565,659);
+ line(30,653,565,653);
  // TABELA
  const tableX=30,tableW=535,headerY=623,headerH=17; rect(tableX,headerY,tableW,headerH,'0.92',false);
  text('ITEM',36,628,8.2,true); text('DESCRIÇÃO DO PRODUTO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
