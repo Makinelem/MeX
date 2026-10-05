@@ -64,7 +64,7 @@ function novoOrc(clienteId=null,id=null){
  const paint=()=>{$('#itens').innerHTML=items.map((it,i)=>`<div class="list-card" style="margin:10px 0"><b>Item ${i+1}</b><label>Nome*</label><input class="in" data-k="nome" data-i="${i}" value="${escapeAttr(it.nome||'')}"><label>Descrição*</label><textarea class="in" data-k="desc" data-i="${i}">${escapeHtml(it.desc||'')}</textarea><label>QTD*</label><input class="in" data-k="qtd" data-i="${i}" type="number" min="0" step="0.01" value="${it.qtd??1}"><label>Valor unitário*</label><input class="in" data-k="uni" data-i="${i}" type="number" min="0" step="0.01" value="${it.uni??0}"><div class="meta">Total: <b class="item-total">${money((it.qtd||0)*(it.uni||0))}</b></div></div>`).join('')};
  paint();$('#addItem').onclick=()=>{items.push({qtd:1,uni:0});paint()};
  $('#orcForm').oninput=e=>{if(e.target.classList.contains('in')){const i=Number(e.target.dataset.i),k=e.target.dataset.k;if(items[i])items[i][k]=e.target.value;const t=e.target.closest('.list-card')?.querySelector('.item-total');if(t)t.textContent=money((Number(items[i].qtd)||0)*(Number(items[i].uni)||0))}};
- const saveQuote=(shareAfter=false)=>{ if(!items.length||items.some(x=>!String(x.nome||'').trim()||!String(x.desc||'').trim()||!x.qtd||x.uni==='')){alert('Preencha todos os campos obrigatórios dos itens.');return} if(!$('#qCliente').value){alert('Selecione o cliente.');return} const now=new Date();const x={...q,id:q.id||crypto.randomUUID(),numero:q.numero||randomQuoteNumber(db.orcamentos.map(v=>v.numero)),clienteId:$('#qCliente').value,validade:Number($('#qValidade').value)||15,data:q.data||now.toISOString(),items:items.map(v=>({nome:String(v.nome||'').trim(),desc:String(v.desc||'').trim(),qtd:Number(v.qtd)||0,uni:Number(v.uni)||0})),status:'pendente'}; if(q.id)db.orcamentos=db.orcamentos.map(v=>v.id===q.id?x:v);else db.orcamentos.push(x);save();$('#modal').classList.add('hidden');render();if(shareAfter)compartilharOrcamento(x.id)}; $('#orcForm').onsubmit=e=>{e.preventDefault();saveQuote(false)}; if($('#saveShare'))$('#saveShare').onclick=()=>saveQuote(true);
+ const saveQuote=(shareAfter=false)=>{ if(!items.length||items.some(x=>!String(x.nome||'').trim()||!String(x.desc||'').trim()||!x.qtd||x.uni==='')){alert('Preencha todos os campos obrigatórios dos itens.');return} if(!$('#qCliente').value){alert('Selecione o cliente.');return} const now=new Date();const x={...q,id:q.id||crypto.randomUUID(),numero:q.numero||randomQuoteNumber(db.orcamentos.map(v=>v.numero)),clienteId:$('#qCliente').value,validade:Number($('#qValidade').value)||15,data:q.data||now.toISOString(),[STRIPPED] if(q.id)db.orcamentos=db.orcamentos.map(v=>v.id===q.id?x:v);else db.orcamentos.push(x);save();$('#modal').classList.add('hidden');render();if(shareAfter)compartilharOrcamento(x.id)}; $('#orcForm').onsubmit=e=>{e.preventDefault();saveQuote(false)}; if($('#saveShare'))$('#saveShare').onclick=()=>saveQuote(true);
 }
 function isPaid(q){return paymentPercent(q)>=100;}
 function paidWatermark(q){return isPaid(q)?'<div class="paid-watermark">PAGO</div>':''}
@@ -100,11 +100,6 @@ function pdfTextSafe(v){return String(v??'').normalize('NFD').replace(/[\u0300-\
 function wrapPdfText(text,max){const words=pdfTextSafe(text).trim().split(/\s+/).filter(Boolean),lines=[];let line='';words.forEach(w=>{const test=(line+' '+w).trim();if(test.length>max){if(line)lines.push(line);line=w}else line=test});if(line)lines.push(line);return lines}
 function pdfBytes(s){const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i)&255;return out}
 function pdfConcat(arrays){let n=0;arrays.forEach(a=>n+=a.length);const out=new Uint8Array(n);let o=0;arrays.forEach(a=>{out.set(a,o);o+=a.length});return out}
-const HELV_WIDTHS={A:.667,B:.667,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.5,K:.667,L:.556,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.556,c:.5,d:.556,e:.556,f:.278,g:.556,h:.556,i:.222,j:.222,k:.5,l:.222,m:.833,n:.556,o:.556,p:.556,q:.556,r:.333,s:.5,t:.278,u:.556,v:.5,w:.722,x:.5,y:.5,z:.5,'0':.556,'1':.556,'2':.556,'3':.556,'4':.556,'5':.556,'6':.556,'7':.556,'8':.556,'9':.556,' ':.278,':':.278,'/':.278,'-':.333,'.':.278};
-const HELV_BOLD_WIDTHS={A:.722,B:.722,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.556,K:.722,L:.611,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.611,c:.556,d:.611,e:.556,f:.333,g:.611,h:.611,i:.278,j:.278,k:.556,l:.278,m:.889,n:.611,o:.611,p:.611,q:.611,r:.389,s:.556,t:.333,u:.611,v:.556,w:.778,x:.556,y:.556,z:.5,'0':.556,'1':.556,'2':.556,'3':.556,'4':.556,'5':.556,'6':.556,'7':.556,'8':.556,'9':.556,' ':.278,':':.333,'/':.278,'-':.333,'.':.278};
-function pdfTextWidthApprox(v,size=9,bold=false){const map=bold?HELV_BOLD_WIDTHS:HELV_WIDTHS;return [...pdfTextSafe(v)].reduce((n,ch)=>n+(map[ch]||.5),0)*size}
-function pdfRightX(v,right,size=9,bold=false){return Math.max(0,right-pdfTextWidthApprox(v,size,bold))}
-function pdfCenterX(v,center,size=9,bold=false){return Math.max(0,center-pdfTextWidthApprox(v,size,bold)/2)}
 
 async function loadPdfImage(path){
   if(location.protocol==='file:') throw new Error('Abra pelo bat');
@@ -137,13 +132,12 @@ async function loadPdfImage(path){
   return {w,h,rgb:await deflate(rgb),alpha:await deflate(alpha)};
 }
 
-// PDF 100% compativel - objetos em ordem
 async function gerarPdfOrcamento(q){
  const c=db.clientes.find(x=>x.id===q.clienteId)||{};
  const total=quoteTotal(q), dataStr=new Date(q.data||Date.now()).toLocaleDateString('pt-BR'), validade=Number(q.validade)||15;
  let logo=null, zap=null;
- try{ logo=await loadPdfImage('logo.png'); }catch(e){ console.warn('Logo falhou',e); }
- try{ zap=await loadPdfImage('zap.png'); }catch(e){ console.warn('Zap falhou',e); }
+ try{ logo=await loadPdfImage('logo.png'); }catch(e){}
+ try{ zap=await loadPdfImage('zap.png'); }catch(e){}
 
  const content=[];
  const text=(s,x,y,size=9,bold=false)=>content.push(`BT /${bold?'F2':'F1'} ${size} Tf 0 g ${x.toFixed(2)} ${y.toFixed(2)} Td (${pdfEscape(pdfTextSafe(s))}) Tj ET`);
@@ -153,81 +147,85 @@ async function gerarPdfOrcamento(q){
 
  if(logo) img('Logo',110,45,30,775);
  line(175,775,175,820); line(430,775,430,820);
- const companyX=190;
- text('Rua Nova, 6760 Pedra Mole',companyX,807,8.5);
- text('CEP: 64065-000',companyX,794,8.5);
- text('CNPJ: 59.687.966/0001-91',companyX,781,8.5);
- const companyContact='(86) 98813-6559';
- text(companyContact,companyX,768,8.5);
- if(zap) img('Zap',11,11,companyX+pdfTextWidthApprox(companyContact,8.5,false)+4,766);
+ text('Rua Nova, 6760 Pedra Mole',190,807,8.5);
+ text('CEP: 64065-000',190,794,8.5);
+ text('CNPJ: 59.687.966/0001-91',190,781,8.5);
+ text('(86) 98813-6559',190,768,8.5);
+ if(zap) img('Zap',11,11,235,766);
  text('ORCAMENTO/PEDIDO',370,807,9.5,true);
  text('N: '+q.numero,370,793,8.5,true);
  text('Emissao: '+dataStr,370,779,8.5);
  text('Validade: '+validade+' dias',370,765,8.5);
  line(30,748,565,748);
  text('Destinatario/ Cliente:',30,731,9.5,true);
- text('Nome: '+(c.nome||'-'),30,714,8.5,true);
- text('CPF/CNPJ: '+maskCpfCnpj(c.doc||'-'),30,700,8.5);
- text('Endereco: '+(c.endereco||'-'),30,686,8.5);
- text('Telefone: '+maskPhone(c.contato||'-'),30,672,8.5);
- line(30,653,565,653);
+ text('Nome: '+(c.nome||'-'),30,720,8.5,true);
+ text('CPF/CNPJ: '+maskCpfCnpj(c.doc||'-'),30,710,8.5);
+ text('Endereco: '+(c.endereco||'-'),30,700,8.5);
+ text('Telefone: '+maskPhone(c.contato||'-'),30,690,8.5);
+ line(30,678,565,678);
  rect(30,623,535,17);
  text('ITEM',36,628,8.2,true); text('DESCRICAO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
- let rowTop=623; (q.items||[]).forEach((it,i)=>{ const descLines=wrapPdfText(it.desc||'',60); const bottom=rowTop-31; line(30,bottom,565,bottom); text(String(i+1),35,rowTop-14,8.8,true); text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true); descLines.slice(0,2).forEach((d,k)=>text(d,75,rowTop-24-k*7,8.1)); text(String(it.qtd??0),370,rowTop-14,8.8); text(money(it.uni),425,rowTop-14,8.8); text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8); rowTop=bottom; });
+ let rowTop=623;
+ (q.items||[]).forEach((it,i)=>{
+   const descLines=wrapPdfText(it.desc||'',60);
+   const bottom=rowTop-31;
+   line(30,bottom,565,bottom);
+   text(String(i+1),35,rowTop-14,8.8,true);
+   text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true);
+   descLines.slice(0,2).forEach((d,k)=>text(d,75,rowTop-24-k*7,8.1));
+   text(String(it.qtd??0),370,rowTop-14,8.8);
+   text(money(it.uni),425,rowTop-14,8.8);
+   text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8);
+   rowTop=bottom;
+ });
  rect(30,47,330,33); rect(370,47,195,33);
- text('Proposta sujeita a aprovacao.',40,69,7.5); text('Garantia de fabrica conforme contrato.',40,56,7.5);
- text('VALOR TOTAL',380,69,8,true); text(money(total),380,52,13.5,true);
- if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){ const wm='PAGO'; text(wm,230,350,86,true); }
+ text('Proposta sujeita a aprovacao.',40,69,7.5);
+ text('Garantia de fabrica conforme contrato.',40,56,7.5);
+ text('VALOR TOTAL',380,69,8,true);
+ text(money(total),380,52,13.5,true);
+ if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){ text('PAGO',230,350,86,true); }
 
- const streamStr=content.join('\n');
- const streamBytes=pdfBytes(streamStr);
+ const streamBytes=pdfBytes(content.join('\n'));
 
- // Monta objetos em ORDEM CRESCENTE
- let objs=[];
- objs[1]='<< /Type /Catalog /Pages 2 0 R >>';
- objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
- let xobjDict='';
- if(logo) xobjDict+=`/Logo 7 0 R `;
- if(zap) xobjDict+=`/Zap 9 0 R `;
- xobjDict=xobjDict.trim();
- const resXobj = xobjDict? `/XObject << ${xobjDict} >>` : '';
- objs[3]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> ${resXobj} >> /Contents 4 0 R >>`;
- objs[4]=`<< /Length ${streamBytes.length} >>`;
- objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
- objs[6]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
- if(logo){ objs[7]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask 8 0 R /Length ${logo.rgb.length} >>`; objs[8]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${logo.alpha.length} >>`; }
- if(zap){ objs[9]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask 10 0 R /Length ${zap.rgb.length} >>`; objs[10]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${zap.alpha.length} >>`; }
+ // OBJETOS SEM BURACO
+ let objs={}; let objData={}; let nextId=1;
+ const catalogId=nextId++; const pagesId=nextId++; const pageId=nextId++; const contentId=nextId++; const font1Id=nextId++; const font2Id=nextId++;
+ let logoRgbId=null, logoAlphaId=null, zapRgbId=null, zapAlphaId=null;
+ if(logo){ logoRgbId=nextId++; logoAlphaId=nextId++; }
+ if(zap){ zapRgbId=nextId++; zapAlphaId=nextId++; }
 
- let parts=[]; let offsets={}; let offset=0;
+ objs[catalogId]=`<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
+ objs[pagesId]=`<< /Type /Pages /Kids [${pageId} 0 R] /Count 1 >>`;
+ let xobjDict=''; if(logoRgbId) xobjDict+=`/Logo ${logoRgbId} 0 R `; if(zapRgbId) xobjDict+=`/Zap ${zapRgbId} 0 R `;
+ const resXobj = xobjDict? `/XObject << ${xobjDict.trim()} >>` : '';
+ objs[pageId]=`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${font1Id} 0 R /F2 ${font2Id} 0 R >> ${resXobj} >> /Contents ${contentId} 0 R >>`;
+ objs[contentId]=`<< /Length ${streamBytes.length} >>`; objData[contentId]=streamBytes;
+ objs[font1Id]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+ objs[font2Id]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+ if(logo){ objs[logoRgbId]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${logoAlphaId} 0 R /Length ${logo.rgb.length} >>`; objData[logoRgbId]=logo.rgb; objs[logoAlphaId]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${logo.alpha.length} >>`; objData[logoAlphaId]=logo.alpha; }
+ if(zap){ objs[zapRgbId]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${zapAlphaId} 0 R /Length ${zap.rgb.length} >>`; objData[zapRgbId]=zap.rgb; objs[zapAlphaId]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${zap.alpha.length} >>`; objData[zapAlphaId]=zap.alpha; }
+
+ let finalParts=[]; let finalOffsets={};
  const header=pdfBytes('%PDF-1.4\n');
- parts.push(header); offset+=header.length;
-
- const maxObj = zap? 10 : (logo? 8 : 6);
- for(let i=1;i<=maxObj;i++){
-   if(!objs[i]) continue;
-   let data=null;
-   if(i===4) data=streamBytes;
-   else if(i===7) data=logo.rgb;
-   else if(i===8) data=logo.alpha;
-   else if(i===9) data=zap.rgb;
-   else if(i===10) data=zap.alpha;
-   offsets[i]=offset;
-   if(data){
-     const head=pdfBytes(i+' 0 obj\n'+objs[i]+'\nstream\n');
-     const tail=pdfBytes('\nendstream\nendobj\n');
-     const full=pdfConcat([head][data][tail]);
-     parts.push(full); offset+=full.length;
+ finalParts.push(header);
+ let cur=header.length;
+ const totalObjs=nextId-1;
+ for(let i=1;i<=totalObjs;i++){
+   finalOffsets[i]=cur;
+   let b;
+   if(objData[i]){
+     b=pdfConcat([pdfBytes(i+' 0 obj\n'+objs[i]+'\nstream\n'), objData[i], pdfBytes('\nendstream\nendobj\n')]);
    }else{
-     const b=pdfBytes(i+' 0 obj\n'+objs[i]+'\nendobj\n');
-     parts.push(b); offset+=b.length;
+     b=pdfBytes(i+' 0 obj\n'+objs[i]+'\nendobj\n');
    }
+   finalParts.push(b); cur+=b.length;
  }
- const xrefPos=offset;
- let xref=`xref\n0 ${maxObj+1}\n0000000000 65535 f \n`;
- for(let i=1;i<=maxObj;i++){ if(!objs[i]){ xref+=`0000000000 00000 f \n`; continue;} xref+=String(offsets[i]).padStart(10,'0')+' 00000 n \n'; }
- xref+=`trailer\n<< /Size ${maxObj+1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
- parts.push(pdfBytes(xref));
- return new Blob(parts,{type:'application/pdf'});
+ const xrefPos=cur;
+ let xref=`xref\n0 ${totalObjs+1}\n0000000000 65535 f \n`;
+ for(let i=1;i<=totalObjs;i++){ xref+=String(finalOffsets[i]).padStart(10,'0')+' 00000 n \n'; }
+ xref+=`trailer\n<< /Size ${totalObjs+1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+ finalParts.push(pdfBytes(xref));
+ return new Blob(finalParts,{type:'application/pdf'});
 }
 
 async function compartilharOrcamento(id){
