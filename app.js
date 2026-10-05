@@ -162,39 +162,57 @@ async function gerarPdfOrcamento(q){
  const rect=(x,y,w,h,fill='0.92')=>content.push(`${fill} g ${x} ${y} ${w} ${h} re f 0.82 G 0.65 w ${x} ${y} ${w} ${h} re S`);
  const img=(name,w,h,x,y)=>content.push(`q ${w} 0 0 ${h} ${x} ${y} cm /${name} Do Q`);
 
+ const companyX=190;
  if(logo) img('Logo',110,45,30,775);
  line(175,775,175,820); line(430,775,430,820);
- text('Rua Nova, 6760 Pedra Mole',190,807,8.5);
- text('CEP: 64065-000',190,794,8.5);
- text('CNPJ: 59.687.966/0001-91',190,781,8.5);
- text('(86) 98813-6559',190,768,8.5);
- if(zap) img('Zap',11,11,235,766);
- text('ORCAMENTO/PEDIDO',370,807,9.5,true);
- text('N: '+q.numero,370,793,8.5,true);
- text('Emissao: '+dataStr,370,779,8.5);
- text('Validade: '+validade+' dias',370,765,8.5);
+ text('Rua Nova, 6760 Pedra Mole',companyX,807,8.5);
+ text('CEP: 64065-000',companyX,794,8.5);
+ text('CNPJ: 59.687.966/0001-91',companyX,781,8.5);
+ const companyContact='(86) 98813-6559';
+ text(companyContact,companyX,768,8.5);
+ if(zap){
+   const wContact = pdfTextWidthApprox(companyContact,8.5,false);
+   img('Zap',11,11,companyX + wContact + 3, 766.5);
+ }
+
+ // 1. DADOS DO ORÇAMENTO ALINHADOS À DIREITA
+ const rightEdge = 565;
+ const t1='ORCAMENTO/PEDIDO';
+ const t2='N: '+q.numero;
+ const t3='Emissao: '+dataStr;
+ const t4='Validade: '+validade+' dias';
+ text(t1, pdfRightX(t1,rightEdge,9.5,true), 807, 9.5, true);
+ text(t2, pdfRightX(t2,rightEdge,8.5,true), 793, 8.5, true);
+ text(t3, pdfRightX(t3,rightEdge,8.5,false), 779, 8.5, false);
+ text(t4, pdfRightX(t4,rightEdge,8.5,false), 765, 8.5, false);
+
  line(30,748,565,748);
  text('Destinatario/ Cliente:',30,731,9.5,true);
- text('Nome: '+(c.nome||'-'),30,720,8.5,true);
- text('CPF/CNPJ: '+maskCpfCnpj(c.doc||'-'),30,710,8.5);
- text('Endereco: '+(c.endereco||'-'),30,700,8.5);
- text('Telefone: '+maskPhone(c.contato||'-'),30,690,8.5);
+ // 3. NOVOS LABELS
+ text('Nome/ Razao Social: '+(c.nome||'-'),30,720,8.5,true);
+ text('CPF/ CNPJ: '+maskCpfCnpj(c.doc||'-'),30,710,8.5);
+ text('Endereco (Opcional): '+(c.endereco||'-'),30,700,8.5);
+ text('Telefone/ Contato: '+maskPhone(c.contato||'-'),30,690,8.5);
  line(30,678,565,678);
  rect(30,623,535,17);
  text('ITEM',36,628,8.2,true); text('DESCRICAO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
+
+ // 4. CORREÇÃO DO CORTE - margem de 36px
  let rowTop=623;
  (q.items||[]).forEach((it,i)=>{
    const descLines=wrapPdfText(it.desc||'',60);
-   const bottom=rowTop-31;
+   const bottom=rowTop-36;
    line(30,bottom,565,bottom);
    text(String(i+1),35,rowTop-14,8.8,true);
    text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true);
-   descLines.slice(0,2).forEach((d,k)=>text(d,75,rowTop-24-k*7,8.1));
+   // margem inferior de 6px para não encostar na linha
+   descLines.slice(0,2).forEach((d,k)=>text(d,75,rowTop-22-k*7,8.1));
    text(String(it.qtd??0),370,rowTop-14,8.8);
    text(money(it.uni),425,rowTop-14,8.8);
    text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8);
    rowTop=bottom;
  });
+
  rect(30,47,330,33); rect(370,47,195,33);
  text('Proposta sujeita a aprovacao.',40,69,7.5);
  text('Garantia de fabrica conforme contrato.',40,56,7.5);
@@ -242,6 +260,7 @@ async function gerarPdfOrcamento(q){
  xref+=`trailer\n<< /Size ${totalObjs+1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
  finalParts.push(pdfBytes(xref));
  return new Blob(finalParts,{type:'application/pdf'});
+}
 }
 async function compartilharOrcamento(id){
  try{
