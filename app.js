@@ -119,6 +119,10 @@ function pdfTextSafe(v){return String(v??'').normalize('NFD').replace(/[\u0300-\
 function wrapPdfText(text,max){const words=pdfTextSafe(text).trim().split(/\s+/).filter(Boolean),lines=[];let line='';words.forEach(w=>{const t=(line+' '+w).trim();if(t.length>max){if(line)lines.push(line);line=w}else line=t});if(line)lines.push(line);return lines}
 function pdfBytes(s){const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i)&255;return out}
 function pdfConcat(arrays){let n=0;arrays.forEach(a=>n+=a.length);const out=new Uint8Array(n);let o=0;arrays.forEach(a=>{out.set(a,o);o+=a.length});return out}
+const HELV_WIDTHS={A:.667,B:.667,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.5,K:.667,L:.556,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.556,c:.5,d:.556,e:.556,f:.278,g:.556,h:.556,i:.222,j:.222,k:.5,l:.222,m:.833,n:.556,o:.556,p:.556,q:.556,r:.333,s:.5,t:.278,u:.556,v:.5,w:.722,x:.5,y:.5,z:.5,'0':.556,'1':.556,'2':.556,'3':.556,'4':.556,'5':.556,'6':.556,'7':.556,'8':.556,'9':.556,' ':.278,':':.278,'/':.278,'-':.333,'.':.278};
+const HELV_BOLD_WIDTHS={A:.722,B:.722,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.556,K:.722,L:.611,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.611,c:.556,d:.611,e:.556,f:.333,g:.611,h:.611,i:.278,j:.278,k:.556,l:.278,m:.889,n:.611,o:.611,p:.611,q:.611,r:.389,s:.556,t:.333,u:.611,v:.556,w:.778,x:.556,y:.556,z:.5,'0':.556,'1':.556,'2':.556,'3':.556,'4':.556,'5':.556,'6':.556,'7':.556,'8':.556,'9':.556,' ':.278,':':.333,'/':.278,'-':.333,'.':.278};
+function pdfTextWidthApprox(v,size=9,bold=false){const map=bold?HELV_BOLD_WIDTHS:HELV_WIDTHS;return [...pdfTextSafe(v)].reduce((n,ch)=>n+(map[ch]||.5),0)*size}
+function pdfRightX(v,right,size=9,bold=false){return Math.max(0,right-pdfTextWidthApprox(v,size,bold))}
 async function loadPdfImage(path){
   if(location.protocol==='file:') throw new Error('Abra pelo bat');
   const res=await fetch(new URL(path, document.baseURI).href,{cache:'no-store'});
@@ -155,13 +159,11 @@ async function gerarPdfOrcamento(q){
  let logo=null, zap=null;
  try{ logo=await loadPdfImage('logo.png'); }catch(e){}
  try{ zap=await loadPdfImage('zap.png'); }catch(e){}
-
  const content=[];
  const text=(s,x,y,size=9,bold=false)=>content.push(`BT /${bold?'F2':'F1'} ${size} Tf 0 g ${x.toFixed(2)} ${y.toFixed(2)} Td (${pdfEscape(pdfTextSafe(s))}) Tj ET`);
  const line=(x1,y1,x2,y2)=>content.push(`0.82 G 0.65 w ${x1} ${y1} m ${x2} ${y2} l S`);
  const rect=(x,y,w,h,fill='0.92')=>content.push(`${fill} g ${x} ${y} ${w} ${h} re f 0.82 G 0.65 w ${x} ${y} ${w} ${h} re S`);
  const img=(name,w,h,x,y)=>content.push(`q ${w} 0 0 ${h} ${x} ${y} cm /${name} Do Q`);
-
  const companyX=190;
  if(logo) img('Logo',110,45,30,775);
  line(175,775,175,820); line(430,775,430,820);
@@ -171,24 +173,20 @@ async function gerarPdfOrcamento(q){
  const companyContact='(86) 98813-6559';
  text(companyContact,companyX,768,8.5);
  if(zap){
-   const wContact = pdfTextWidthApprox(companyContact,8.5,false);
-   img('Zap',11,11,companyX + wContact + 3, 766.5);
+   const wContact=pdfTextWidthApprox(companyContact,8.5,false);
+   img('Zap',11,11,companyX+wContact+3,766.5);
  }
-
- // 1. DADOS DO ORÇAMENTO ALINHADOS À DIREITA
- const rightEdge = 565;
+ const rightEdge=565;
  const t1='ORCAMENTO/PEDIDO';
  const t2='N: '+q.numero;
  const t3='Emissao: '+dataStr;
  const t4='Validade: '+validade+' dias';
- text(t1, pdfRightX(t1,rightEdge,9.5,true), 807, 9.5, true);
- text(t2, pdfRightX(t2,rightEdge,8.5,true), 793, 8.5, true);
- text(t3, pdfRightX(t3,rightEdge,8.5,false), 779, 8.5, false);
- text(t4, pdfRightX(t4,rightEdge,8.5,false), 765, 8.5, false);
-
+ text(t1,pdfRightX(t1,rightEdge,9.5,true),807,9.5,true);
+ text(t2,pdfRightX(t2,rightEdge,8.5,true),793,8.5,true);
+ text(t3,pdfRightX(t3,rightEdge,8.5,false),779,8.5,false);
+ text(t4,pdfRightX(t4,rightEdge,8.5,false),765,8.5,false);
  line(30,748,565,748);
  text('Destinatario/ Cliente:',30,731,9.5,true);
- // 3. NOVOS LABELS
  text('Nome/ Razao Social: '+(c.nome||'-'),30,720,8.5,true);
  text('CPF/ CNPJ: '+maskCpfCnpj(c.doc||'-'),30,710,8.5);
  text('Endereco (Opcional): '+(c.endereco||'-'),30,700,8.5);
@@ -196,8 +194,6 @@ async function gerarPdfOrcamento(q){
  line(30,678,565,678);
  rect(30,623,535,17);
  text('ITEM',36,628,8.2,true); text('DESCRICAO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
-
- // 4. CORREÇÃO DO CORTE - margem de 36px
  let rowTop=623;
  (q.items||[]).forEach((it,i)=>{
    const descLines=wrapPdfText(it.desc||'',60);
@@ -205,29 +201,24 @@ async function gerarPdfOrcamento(q){
    line(30,bottom,565,bottom);
    text(String(i+1),35,rowTop-14,8.8,true);
    text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true);
-   // margem inferior de 6px para não encostar na linha
    descLines.slice(0,2).forEach((d,k)=>text(d,75,rowTop-22-k*7,8.1));
    text(String(it.qtd??0),370,rowTop-14,8.8);
    text(money(it.uni),425,rowTop-14,8.8);
    text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8);
    rowTop=bottom;
  });
-
  rect(30,47,330,33); rect(370,47,195,33);
  text('Proposta sujeita a aprovacao.',40,69,7.5);
  text('Garantia de fabrica conforme contrato.',40,56,7.5);
  text('VALOR TOTAL',380,69,8,true);
  text(money(total),380,52,13.5,true);
  if(String(q.status||'').toLowerCase()==='concluido' && isPaid(q)){ text('PAGO',230,350,86,true); }
-
  const streamBytes=pdfBytes(content.join('\n'));
-
  let objs={}; let objData={}; let nextId=1;
  const catalogId=nextId++; const pagesId=nextId++; const pageId=nextId++; const contentId=nextId++; const font1Id=nextId++; const font2Id=nextId++;
  let logoRgbId=null, logoAlphaId=null, zapRgbId=null, zapAlphaId=null;
  if(logo){ logoRgbId=nextId++; logoAlphaId=nextId++; }
  if(zap){ zapRgbId=nextId++; zapAlphaId=nextId++; }
-
  objs[catalogId]=`<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
  objs[pagesId]=`<< /Type /Pages /Kids [${pageId} 0 R] /Count 1 >>`;
  let xobjDict=''; if(logoRgbId) xobjDict+=`/Logo ${logoRgbId} 0 R `; if(zapRgbId) xobjDict+=`/Zap ${zapRgbId} 0 R `;
@@ -238,7 +229,6 @@ async function gerarPdfOrcamento(q){
  objs[font2Id]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
  if(logo){ objs[logoRgbId]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${logoAlphaId} 0 R /Length ${logo.rgb.length} >>`; objData[logoRgbId]=logo.rgb; objs[logoAlphaId]=`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${logo.alpha.length} >>`; objData[logoAlphaId]=logo.alpha; }
  if(zap){ objs[zapRgbId]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /SMask ${zapAlphaId} 0 R /Length ${zap.rgb.length} >>`; objData[zapRgbId]=zap.rgb; objs[zapAlphaId]=`<< /Type /XObject /Subtype /Image /Width ${zap.w} /Height ${zap.h} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${zap.alpha.length} >>`; objData[zapAlphaId]=zap.alpha; }
-
  let finalParts=[]; let finalOffsets={};
  const header=pdfBytes('%PDF-1.4\n');
  finalParts.push(header);
@@ -260,7 +250,6 @@ async function gerarPdfOrcamento(q){
  xref+=`trailer\n<< /Size ${totalObjs+1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
  finalParts.push(pdfBytes(xref));
  return new Blob(finalParts,{type:'application/pdf'});
-}
 }
 async function compartilharOrcamento(id){
  try{
