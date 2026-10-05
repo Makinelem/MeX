@@ -356,9 +356,9 @@ async function gerarPdfOrcamento(q){
  text('Destinatário/ Cliente:',30,731,9.5,true);
  const clientLine=(label,value,y)=>{const safe=String(value||'-');text(label,30,y,8.5,false);text(safe,30+pdfTextWidthApprox(label,8.5,false)+3,y,8.5,true)};
  clientLine('Nome/ Razão Social: ',c.nome,714);
- clientLine('CPF/ CNPJ: ',maskCpfCnpj(c.doc),700);
- clientLine('Endereço (Opcional): ',c.endereco,686);
- clientLine('Telefone/ Contato: ',maskPhone(c.contato),672);
+ clientLine('CPF/ CNPJ: ',maskCpfCnpj(c.doc),703);
+ clientLine('Endereço (Opcional): ',c.endereco,692);
+ clientLine('Telefone/ Contato: ',maskPhone(c.contato),681);
  line(30,653,565,653);
  // TABELA
  const tableX=30,tableW=535,headerY=623,headerH=17; rect(tableX,headerY,tableW,headerH,'0.92',false);
