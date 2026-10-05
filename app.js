@@ -205,8 +205,8 @@ function pdfTextSafe(v){return String(v??'').normalize('NFD').replace(/[\u0300-\
 function wrapPdfText(text,max){const words=pdfTextSafe(text).split(/\s+/);const lines=[];let line='';words.forEach(w=>{if((line+' '+w).trim().length>max){if(line)lines.push(line);line=w}else line=(line+' '+w).trim()});if(line)lines.push(line);return lines}
 function pdfBytes(s){const out=new Uint8Array(s.length);for(let i=0;i<s.length;i++)out[i]=s.charCodeAt(i)&255;return out}
 function pdfConcat(parts){let n=0;parts.forEach(p=>n+=p.length);const out=new Uint8Array(n);let o=0;parts.forEach(p=>{out.set(p,o);o+=p.length});return out}
-const HELV_WIDTHS={A:.667,B:.667,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.5,K:.667,L:.556,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.556,c:.5,d:.556,e:.556,f:.278,g:.556,h:.556,i:.222,j:.222,k:.5,l:.222,m:.833,n:.556,o:.556,p:.556,q:.556,r:.333,s:.5,t:.278,u:.556,v:.5,w:.722,x:.5,y:.5,z:.5,' ':.278,':':.278,'/':.278,'-':.333,'.':.278,',':.278,'°':.5,'º':.5,'(': .333,')':.333};
-const HELV_BOLD_WIDTHS={A:.722,B:.722,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.5,K:.667,L:.611,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.556,c:.5,d:.556,e:.556,f:.333,g:.556,h:.556,i:.278,j:.278,k:.556,l:.278,m:.833,n:.556,o:.556,p:.556,q:.556,r:.333,s:.5,t:.333,u:.556,v:.5,w:.722,x:.5,y:.5,z:.5,' ':.278,':':.278,'/':.278,'-':.333,'.':.278,',':.278,'°':.5,'º':.5,'(': .333,')':.333};
+const HELV_WIDTHS={A:.667,B:.667,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.5,K:.667,L:.556,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.556,c:.5,d:.556,e:.556,f:.278,g:.556,h:.556,i:.222,j:.222,k:.5,l:.222,m:.833,n:.556,o:.556,p:.556,q:.556,r:.333,s:.5,t:.278,u:.556,v:.5,w:.722,x:.5,y:.5,z:.5,'0':.556,'1':.556,'2':.556,'3':.556,'4':.556,'5':.556,'6':.556,'7':.556,'8':.556,'9':.556,' ':.278,':':.278,'/':.278,'-':.333,'.':.278,'°':.4,'º':.365};
+const HELV_BOLD_WIDTHS={A:.722,B:.722,C:.722,D:.722,E:.667,F:.611,G:.778,H:.722,I:.278,J:.556,K:.722,L:.611,M:.833,N:.722,O:.778,P:.667,Q:.778,R:.722,S:.667,T:.611,U:.722,V:.667,W:.944,X:.667,Y:.667,Z:.611,a:.556,b:.611,c:.556,d:.611,e:.556,f:.333,g:.611,h:.611,i:.278,j:.278,k:.556,l:.278,m:.889,n:.611,o:.611,p:.611,q:.611,r:.389,s:.556,t:.333,u:.611,v:.556,w:.778,x:.556,y:.556,z:.5,'0':.556,'1':.556,'2':.556,'3':.556,'4':.556,'5':.556,'6':.556,'7':.556,'8':.556,'9':.556,' ':.278,':':.333,'/':.278,'-':.333,'.':.278,'°':.4,'º':.365};
 function pdfTextWidthApprox(v,size=9,bold=false){const map=bold?HELV_BOLD_WIDTHS:HELV_WIDTHS;return [...pdfTextSafe(v)].reduce((n,ch)=>n+(map[ch]??.5),0)*size}
 function pdfRightX(v,right,size=9,bold=false){return Math.max(0,right-pdfTextWidthApprox(v,size,bold))}
 function pdfCenterX(v,center,size=9,bold=false){return Math.max(0,center-pdfTextWidthApprox(v,size,bold)/2)}
@@ -327,7 +327,7 @@ async function gerarPdfOrcamento(q){
  text('CNPJ: 59.687.966/0001-91',companyX,781,8.5);
  const companyContact='(86) 98813-6559';
  text(companyContact,companyX,768,8.5);
- if(zap) img('Zap',11,11,companyX+pdfTextWidthApprox(companyContact,8.5,false)+4,764);
+ if(zap) img('Zap',11,11,companyX+pdfTextWidthApprox(companyContact,8.5,false)+4,766);
  const budgetTitle='ORÇAMENTO/PEDIDO',budgetNo='N°: '+q.numero,budgetDate='Emissão: '+data,budgetValidity='Validade: '+validade+' dias';
  const budgetRight=555;
  text(budgetTitle,pdfRightX(budgetTitle,budgetRight,9.5,true),807,9.5,true);
@@ -413,8 +413,33 @@ async function compartilharOrcamento(id){
 function closeMenu(){$('#sideMenu')?.classList.add('hidden')}
 $('#menuBtn').onclick=()=>$('#sideMenu').classList.toggle('hidden');
 $('#menuClose').onclick=closeMenu;
+$('#menuUser').onclick=()=>{closeMenu();openUserSettings()};
 $('#menuLogout').onclick=logout;
 $('#menuSettings').onclick=()=>{closeMenu();openSettings()};
+function openUserSettings(){
+ const a=auth();
+ openModal('Usuário',`<form id="userForm">
+   <label>Nome de usuário</label><input id="userName" autocomplete="username" value="${escapeAttr(a.user||'')}" required>
+   <label>Senha atual</label><input id="currentPass" type="password" autocomplete="current-password" required>
+   <label>Nova senha</label><input id="newPass" type="password" autocomplete="new-password" placeholder="Deixe em branco para manter a atual">
+   <label>Confirmar nova senha</label><input id="newPass2" type="password" autocomplete="new-password" placeholder="Deixe em branco para manter a atual">
+   <div class="form-actions"><button type="submit" style="background:#17324d;color:white">Salvar</button></div>
+ </form>`);
+ $('#userForm').onsubmit=e=>{
+   e.preventDefault();
+   const current=$('#currentPass').value;
+   const name=$('#userName').value.trim();
+   const np=$('#newPass').value;
+   const np2=$('#newPass2').value;
+   if(current!==a.pass){alert('Senha atual inválida.');return}
+   if(!name){alert('Informe o nome de usuário.');return}
+   if((np||np2)&&np!==np2){alert('A confirmação da nova senha não confere.');return}
+   localStorage.setItem(AUTH_KEY,JSON.stringify({user:name,pass:np||a.pass}));
+   $('#modal').classList.add('hidden');
+   alert('Dados de usuário atualizados.');
+ };
+}
+
 function openSettings(){
  openModal('Ajustes',`<label>Tema</label><div class="theme-options"><button data-theme="claro">Claro</button><button data-theme="medio">Médio</button><button data-theme="escuro">Escuro</button></div><label>Fonte: Ajustar tamanho da fonte</label><input id="fontRange" type="range" min="90" max="125" step="5" value="${Number(localStorage.getItem('mex_font')||100)}"><div class="font-preview" id="fontPreview">Tamanho atual da fonte</div>`);
  document.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>setTheme(b.dataset.theme));$('#fontRange').oninput=e=>setFont(Number(e.target.value));
