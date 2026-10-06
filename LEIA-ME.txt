@@ -1,0 +1,17 @@
+ME X - RECUPERAÇÃO DE SENHA
+
+Alteração aplicada somente na recuperação de senha.
+
+A senha de segurança é:
+M@ki0110
+
+Fluxo:
+1. Clique em "Esqueci a senha".
+2. Informe a senha de segurança.
+3. Informe a nova senha.
+4. Confirme a nova senha.
+5. A senha do usuário é redefinida.
+
+Não há mais PDF, WhatsApp ou arquivo de recuperação.
+
+Substitua apenas o app.js do projeto pelo app.js deste pacote.

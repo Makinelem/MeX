@@ -22,6 +22,39 @@ let currentScreen='home'; let activeFinanceTab='abertos';
 function auth(){return JSON.parse(localStorage.getItem(AUTH_KEY)||'null')||{user:'admin',pass:'1234'}}
 function isLogged(){return localStorage.getItem(SESSION_KEY)==='1'}
 function login(){ const u=$('#loginUser')?.value.trim(),p=$('#loginPass')?.value; if(u===auth().user&&p===auth().pass){localStorage.setItem(SESSION_KEY,'1');localStorage.removeItem('mex_hidden_at');showApp();} else $('#loginError').textContent='Usuário ou senha inválidos.';}
+
+// Recuperação de senha: usa somente a senha de segurança definida pelo proprietário.
+const SECURITY_PASSWORD='M@ki0110';
+function recuperarSenha(){
+  const a=auth();
+  openModal('Recuperar senha',`<form id="recoveryForm">
+    <p>Informe a senha de segurança para recuperar o acesso.</p>
+    <label>Senha de segurança</label>
+    <input id="securityPass" type="password" autocomplete="off" required>
+    <label>Nova senha</label>
+    <input id="recoveryNewPass" type="password" autocomplete="new-password" required>
+    <label>Confirmar nova senha</label>
+    <input id="recoveryNewPass2" type="password" autocomplete="new-password" required>
+    <div class="form-actions"><button type="submit" style="background:#17324d;color:white">Redefinir senha</button></div>
+  </form>`);
+  $('#recoveryForm').onsubmit=e=>{
+    e.preventDefault();
+    const security=$('#securityPass').value;
+    const np=$('#recoveryNewPass').value;
+    const np2=$('#recoveryNewPass2').value;
+    if(security!==SECURITY_PASSWORD){alert('Senha de segurança incorreta.');return;}
+    if(!np){alert('Informe a nova senha.');return;}
+    if(np!==np2){alert('A confirmação da nova senha não confere.');return;}
+    localStorage.setItem(AUTH_KEY,JSON.stringify({user:a.user,pass:np}));
+    $('#modal').classList.add('hidden');
+    if($('#loginPass')) $('#loginPass').value='';
+    if($('#loginError')) $('#loginError').textContent='';
+    alert('Senha redefinida com sucesso. Agora entre com sua nova senha.');
+  };
+}
+window.recuperarSenha=recuperarSenha;
+window.esqueciSenha=recuperarSenha;
+
 function logout(){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('mex_hidden_at');showLogin()}
 function showLogin(){document.body.classList.add('logged-out');$('#loginScreen').classList.remove('hidden');$('#appShell').classList.add('hidden')}
 function showApp(){document.body.classList.remove('logged-out');$('#loginScreen').classList.add('hidden');$('#appShell').classList.remove('hidden');go(currentScreen||'home',false)}
@@ -236,126 +269,6 @@ async function compartilharOrcamento(id){
    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=nomeSafe; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),8000);
  }catch(e){ console.error(e); alert('Erro PDF: '+(e.message||e)); }
 }
-
-function md5Bytes(input){
-  const a = input instanceof Uint8Array ? input : new Uint8Array(input);
-  const msg = new Uint8Array(((a.length+9+63)>>6)<<6);
-  msg.set(a); msg[a.length]=0x80;
-  const bitLen=a.length*8;
-  const dv=new DataView(msg.buffer);
-  dv.setUint32(msg.length-8,bitLen>>>0,true);
-  dv.setUint32(msg.length-4,Math.floor(bitLen/4294967296)>>>0,true);
-  let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476;
-  const K=[]; for(let i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)>>>0;
-  const S=[7,12,17,22,5,9,14,20,5,9,14,20,4,11,16,23];
-  const rol=(x,n)=>(x<<n)|(x>>>(32-n));
-  for(let off=0;off<msg.length;off+=64){
-    const M=new Uint32Array(16); for(let i=0;i<16;i++)M[i]=dv.getUint32(off+i*4,true);
-    let A=h0,B=h1,C=h2,D=h3;
-    for(let i=0;i<64;i++){
-      let F,g,s;
-      if(i<16){F=(B&C)|((~B)&D);g=i;s=S[i%4];}
-      else if(i<32){F=(D&B)|((~D)&C);g=(5*i+1)%16;s=S[4+i%4];}
-      else if(i<48){F=B^C^D;g=(3*i+5)%16;s=S[8+i%4];}
-      else {F=C^(B|(~D));g=(7*i)%16;s=S[12+i%4];}
-      const t=(A+F+K[i]+M[g])>>>0;
-      const nb=(B+rol(t,s))>>>0; A=D;D=C;C=B;B=nb;
-    }
-    h0=(h0+A)>>>0;h1=(h1+B)>>>0;h2=(h2+C)>>>0;h3=(h3+D)>>>0;
-  }
-  const out=new Uint8Array(16),od=new DataView(out.buffer);
-  od.setUint32(0,h0,true);od.setUint32(4,h1,true);od.setUint32(8,h2,true);od.setUint32(12,h3,true);
-  return out;
-}
-function rc4Bytes(data,key){
-  const S=new Uint8Array(256); for(let i=0;i<256;i++)S[i]=i;
-  let j=0; for(let i=0;i<256;i++){j=(j+S[i]+key[i%key.length])&255;[S[i],S[j]]=[S[j],S[i]];}
-  const out=new Uint8Array(data.length); let i=0;j=0;
-  for(let n=0;n<data.length;n++){i=(i+1)&255;j=(j+S[i])&255;[S[i],S[j]]=[S[j],S[i]];out[n]=data[n]^S[(S[i]+S[j])&255];}
-  return out;
-}
-function pdfPadPassword(s){
-  const p=new Uint8Array([0x28,0xBF,0x4E,0x5E,0x4E,0x75,0x8A,0x41,0x64,0x00,0x4E,0x56,0xFF,0xFA,0x01,0x08,0x2E,0x2E,0x00,0xB6,0xD0,0x68,0x3E,0x80,0x2F,0x0C,0xA9,0xFE,0x64,0x53,0x69,0x7A]);
-  const raw=new TextEncoder().encode(String(s||''));
-  const out=new Uint8Array(32); out.set(raw.slice(0,32)); if(raw.length<32)out.set(p.slice(0,32-raw.length),raw.length); return out;
-}
-function le32(n){const a=new Uint8Array(4);a[0]=n&255;a[1]=(n>>>8)&255;a[2]=(n>>>16)&255;a[3]=(n>>>24)&255;return a;}
-function hexBytes(a){return [...a].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();}
-function concatBytes(...xs){let n=0;xs.forEach(x=>n+=x.length);const o=new Uint8Array(n);let p=0;xs.forEach(x=>{o.set(x,p);p+=x.length});return o;}
-function pdfEncryptR2(contentBytes,contentObjId,userPassword){
-  const ownerPassword=userPassword;
-  const P=-4;
-  const ownerKey=md5Bytes(pdfPadPassword(ownerPassword)).slice(0,5);
-  const O=rc4Bytes(pdfPadPassword(userPassword),ownerKey);
-  const id=md5Bytes(contentBytes);
-  const pbytes=le32(P>>>0);
-  const fileKey=md5Bytes(concatBytes(pdfPadPassword(userPassword),O,pbytes,id)).slice(0,5);
-  const U=rc4Bytes(new Uint8Array([0x28,0xBF,0x4E,0x5E,0x4E,0x75,0x8A,0x41,0x64,0x00,0x4E,0x56,0xFF,0xFA,0x01,0x08,0x2E,0x2E,0x00,0xB6,0xD0,0x68,0x3E,0x80,0x2F,0x0C,0xA9,0xFE,0x64,0x53,0x69,0x7A]),fileKey);
-  const objKey=md5Bytes(concatBytes(fileKey,new Uint8Array([contentObjId&255,(contentObjId>>>8)&255,(contentObjId>>>16)&255,0,0]))).slice(0,5);
-  const encrypted=rc4Bytes(contentBytes,objKey);
-  return {encrypted,O,U,id,P};
-}
-
-
-async function gerarPdfRecuperacao(){
-  const a=auth(), user=a.user||'admin', pass=a.pass||'1234', unlock='M@ki0110';
-  const esc=v=>pdfEscape(pdfTextSafe(String(v??'')));
-  const stream=[
-    'BT /F2 18 Tf 40 790 Td (MeX - Recuperacao de senha) Tj ET',
-    `BT /F1 11 Tf 40 755 Td (Usuario: ${esc(user)}) Tj ET`,
-    `BT /F1 11 Tf 40 735 Td (Senha atual: ${esc(pass)}) Tj ET`,
-    'BT /F1 11 Tf 40 695 Td (Este documento esta protegido por senha.) Tj ET',
-    `BT /F2 12 Tf 40 670 Td (Senha para abrir o PDF: ${esc(unlock)}) Tj ET`,
-    'BT /F1 9 Tf 40 635 Td (Guarde esta senha. Ela e necessaria para abrir este arquivo.) Tj ET'
-  ].join('\\n');
-  const plain=pdfBytes(stream);
-  const enc=pdfEncryptR2(plain,6,unlock);
-  const objs={
-    1:'<< /Type /Catalog /Pages 2 0 R >>',
-    2:'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    3:'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
-    4:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
-    5:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-    6:`<< /Length ${enc.encrypted.length} >>`,
-    7:`<< /Filter /Standard /V 1 /R 2 /Length 40 /O <${hexBytes(enc.O)}> /U <${hexBytes(enc.U)}> /P ${enc.P} >>`
-  };
-  const parts=[pdfBytes('%PDF-1.4\\n')], offs={}, count=7;
-  let cur=parts[0].length;
-  for(let i=1;i<=count;i++){
-    offs[i]=cur;
-    let b;
-    if(i===6) b=pdfConcat([pdfBytes('6 0 obj\\n'+objs[6]+'\\nstream\\n'),enc.encrypted,pdfBytes('\\nendstream\\nendobj\\n')]);
-    else b=pdfBytes(i+' 0 obj\\n'+objs[i]+'\\nendobj\\n');
-    parts.push(b); cur+=b.length;
-  }
-  const xp=cur;
-  let x='xref\\n0 8\\n0000000000 65535 f \\n';
-  for(let i=1;i<=count;i++) x+=String(offs[i]).padStart(10,'0')+' 00000 n \\n';
-  x+=`trailer\\n<< /Size 8 /Root 1 0 R /Encrypt 7 0 R /ID [<${hexBytes(enc.id)}> <${hexBytes(enc.id)}>] >>\\nstartxref\\n${xp}\\n%%EOF`;
-  parts.push(pdfBytes(x));
-  return new Blob(parts,{type:'application/pdf'});
-}
-async function esqueciSenha(){
-  try{
-    const blob=await gerarPdfRecuperacao();
-    const file=new File([blob],'MeX_Recuperacao_de_Senha.pdf',{type:'application/pdf'});
-    const message='MeX - Recuperacao de senha. PDF protegido. Senha para abrir: M@ki0110.';
-    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-      try{await navigator.share({files:[file],text:message,title:'MeX - Recuperacao de senha'});return;}catch(e){if(e.name==='AbortError')return;}
-    }
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),10000);
-    window.open('https://wa.me/5586999080211?text='+encodeURIComponent(message),'_blank','noopener');
-    alert('O PDF foi salvo. O WhatsApp foi aberto para o numero 86999080211. Anexe o PDF na conversa.');
-  }catch(e){console.error(e);alert('Erro ao gerar PDF de recuperacao: '+(e.message||e));}
-}
-window.esqueciSenha=esqueciSenha;
-document.addEventListener('click',e=>{
-  const b=e.target.closest('#forgotPassword,#esqueciSenha,[data-forgot-password]');
-  if(b){e.preventDefault();esqueciSenha();}
-});
-
 function closeMenu(){$('#sideMenu')?.classList.add('hidden')}
 $('#menuBtn').onclick=()=>$('#sideMenu').classList.toggle('hidden');
 $('#menuClose').onclick=closeMenu;
@@ -369,6 +282,13 @@ function setFont(v){document.documentElement.style.setProperty('--font-scale',(v
 function loadPreferences(){setTheme(localStorage.getItem('mex_theme')||'claro');setFont(Number(localStorage.getItem('mex_font')||100))}
 $('#loginForm').onsubmit=e=>{e.preventDefault();login()};
 $('#loginPass').onkeydown=e=>{if(e.key==='Enter')login()};
+
+// Compatibilidade com os nomes usados nas versões anteriores do MeX.
+['#forgotPassword','#esqueciSenha','#btnForgotPassword','#btnEsqueciSenha'].forEach(sel=>{
+  const el=document.querySelector(sel);
+  if(el) el.onclick=e=>{e.preventDefault();recuperarSenha();};
+});
+
 document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{$('#filtros').classList.add('hidden');renderOrcamentos(b.dataset.filter)});
 $('#filtroBtn').onclick=()=>$('#filtros').classList.toggle('hidden');
 function fixBotoesNovo(){
