@@ -23,7 +23,7 @@ let searchClientes=''; let searchOrcamentos=''; let searchFinanceiro='';
 function auth(){return JSON.parse(localStorage.getItem(AUTH_KEY)||'null')||{user:'admin',pass:'1234'}}
 function isLogged(){return localStorage.getItem(SESSION_KEY)==='1'}
 function login(){ const u=$('#loginUser')?.value.trim(),p=$('#loginPass')?.value; if(u===auth().user&&p===auth().pass){localStorage.setItem(SESSION_KEY,'1');localStorage.removeItem('mex_hidden_at');showApp();} else $('#loginError').textContent='Usuário ou senha inválidos.';}
-function logout(){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('mex_hidden_at');showLogin()}
+function logout(){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('mex_hidden_at');$('#sideMenu')?.classList.add('hidden');showLogin()}
 function showLogin(){document.body.classList.add('logged-out');$('#loginScreen').classList.remove('hidden');$('#appShell').classList.add('hidden')}
 function showApp(){document.body.classList.remove('logged-out');$('#loginScreen').classList.add('hidden');$('#appShell').classList.remove('hidden');go(currentScreen||'home',false)}
 function checkInactivity(){ if(!isLogged())return; const h=Number(localStorage.getItem('mex_hidden_at')||0); if(h && Date.now()-h>=INACTIVITY){logout()}}
@@ -66,7 +66,7 @@ function renderClientes(){
   const clientes=db.clientes.filter(c=>!term || [c.nome,c.contato,c.doc,c.cep,c.endereco].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(term)));
   $('#clientesLista').innerHTML=clientes.map(c=>{
     const classe = clienteTemDebito(c.id)? ' cli-vermelho' : '';
-    return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a><div class="actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button><span class="spacer"></span><button onclick="novoOrc('${c.id}')">+ Novo orçamento</button></div></div>`
+    return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><div class="client-info"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a></div><div class="actions client-actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button></div><button class="novo-orcamento-client" onclick="event.stopPropagation();novoOrc('${c.id}')">+ Novo orçamento</button></div>`
   }).join('')||'<div class="list-card">Nenhum cliente encontrado.</div>'
 }
 

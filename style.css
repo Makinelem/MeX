@@ -207,3 +207,52 @@ body[data-theme="escuro"] .search-wrap input,body[data-theme="escuro"] .search-i
 body[data-theme="escuro"] .item-modal-box{background:#1d2731;color:#edf2f6}
 body[data-theme="escuro"] .item-modal-box input,body[data-theme="escuro"] .item-modal-box textarea{background:#27333e;color:#fff;border-color:#46535f}
 body[data-theme="escuro"] .forgot-password{color:#8ab4ff}
+
+
+/* ===== Correções finais dos cards de Clientes/Orçamentos ===== */
+#clientesLista .client-card{
+  padding:10px 12px !important;
+  min-height:0 !important;
+}
+#clientesLista .client-info{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  padding-right:78px;
+}
+#clientesLista .client-info > b{
+  line-height:1.15;
+}
+#clientesLista .client-info .contact-link{
+  display:block;
+  line-height:1.15;
+  margin-top:2px;
+}
+#clientesLista .client-actions{
+  position:absolute !important;
+  top:7px;
+  right:8px;
+  display:flex;
+  gap:5px;
+  margin:0 !important;
+}
+#clientesLista .client-actions button{
+  width:30px;
+  height:30px;
+  min-height:30px;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+#clientesLista .novo-orcamento-client{
+  margin-top:7px;
+  min-height:34px;
+  padding:6px 10px;
+}
+/* Orçamentos com a mesma compactação vertical dos cards de Clientes/Contatos */
+#orcamentosLista .list-card,
+#financeiroLista .list-card{
+  padding:10px 12px !important;
+  min-height:0 !important;
+}
