@@ -19,11 +19,10 @@ normalizeQuoteNumbers();
 const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)||0).replace(/\u00A0/g,' ');
 const $=s=>document.querySelector(s);
 let currentScreen='home'; let activeFinanceTab='abertos';
-let searchClientes=''; let searchOrcamentos=''; let searchFinanceiro='';
 function auth(){return JSON.parse(localStorage.getItem(AUTH_KEY)||'null')||{user:'admin',pass:'1234'}}
 function isLogged(){return localStorage.getItem(SESSION_KEY)==='1'}
 function login(){ const u=$('#loginUser')?.value.trim(),p=$('#loginPass')?.value; if(u===auth().user&&p===auth().pass){localStorage.setItem(SESSION_KEY,'1');localStorage.removeItem('mex_hidden_at');showApp();} else $('#loginError').textContent='Usuário ou senha inválidos.';}
-function logout(){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('mex_hidden_at');$('#sideMenu')?.classList.add('hidden');showLogin()}
+function logout(){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('mex_hidden_at');showLogin()}
 function showLogin(){document.body.classList.add('logged-out');$('#loginScreen').classList.remove('hidden');$('#appShell').classList.add('hidden')}
 function showApp(){document.body.classList.remove('logged-out');$('#loginScreen').classList.add('hidden');$('#appShell').classList.remove('hidden');go(currentScreen||'home',false)}
 function checkInactivity(){ if(!isLogged())return; const h=Number(localStorage.getItem('mex_hidden_at')||0); if(h && Date.now()-h>=INACTIVITY){logout()}}
@@ -62,40 +61,29 @@ function clienteTemDebito(id){
   return db.orcamentos.some(q => q.clienteId===id && (q.status==='aprovado' || q.status==='concluido') && paymentPercent(q) < 100);
 }
 function renderClientes(){
-  const term=searchClientes.trim().toLocaleLowerCase('pt-BR');
-  const clientes=db.clientes.filter(c=>!term || [c.nome,c.contato,c.doc,c.cep,c.endereco].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(term)));
-  $('#clientesLista').innerHTML=clientes.map(c=>{
+  $('#clientesLista').innerHTML=db.clientes.map(c=>{
     const classe = clienteTemDebito(c.id)? ' cli-vermelho' : '';
-    return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><div class="client-info"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a></div><div class="actions client-actions" onclick="event.stopPropagation()"><button class="quote-icon action-edit" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon action-delete danger-icon" onclick="delCliente('${c.id}')">🗑</button></div><button class="novo-orcamento-client" onclick="event.stopPropagation();novoOrc('${c.id}')">+ Novo orçamento</button></div>`
-  }).join('')||'<div class="list-card">Nenhum cliente encontrado.</div>'
+    return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a><div class="actions" onclick="event.stopPropagation()"><button class="quote-icon" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon danger-icon" onclick="delCliente('${c.id}')">🗑</button><span class="spacer"></span><button onclick="novoOrc('${c.id}')">+ Novo orçamento</button></div></div>`
+  }).join('')||'<div class="list-card">Nenhum cliente cadastrado.</div>'
 }
 
 function novoOrc(clienteId=null,id=null){
  const q=db.orcamentos.find(x=>x.id===id)||{clienteId:clienteId||'',items:[],validade:15,status:'pendente'};
- if(id && !['pendente','aprovado','cancelado','vencido'].includes(q.status)){openModal('Aviso','<p>Este orçamento não pode ser editado neste momento.</p>');return}
- openModal(id?'Editar orçamento':'Novo orçamento',`<form id="orcForm"><label>Cliente*</label><select id="qCliente" required><option value="">Selecione</option>${db.clientes.map(c=>`<option value="${c.id}" ${c.id===q.clienteId?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select><label>Validade (dias)</label><input id="qValidade" type="number" min="1" value="${q.validade||15}"><div id="itens"></div><button type="button" class="secondary" id="addItem">+ Adicionar item</button><div class="form-actions quote-save-actions"><button type="submit" style="background:#17324d;color:white">Salvar orçamento</button>${['pendente'].includes(q.status)?'<button type="button" id="saveShare" class="share-save">↗ Salvar e compartilhar</button>':''}</div></form>`);
+ if(q.status!=='pendente'&&id){openModal('Aviso','<p>Somente orçamentos pendentes podem ser editados.</p>');return}
+ openModal(id?'Editar orçamento':'Novo orçamento',`<form id="orcForm"><label>Cliente*</label><select id="qCliente" required><option value="">Selecione</option>${db.clientes.map(c=>`<option value="${c.id}" ${c.id===q.clienteId?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select><label>Validade (dias)</label><input id="qValidade" type="number" min="1" value="${q.validade||15}"><div id="itens"></div><button type="button" class="secondary" id="addItem">+ Adicionar item</button><div class="form-actions quote-save-actions"><button type="submit" style="background:#17324d;color:white">Salvar orçamento</button>${q.status==='pendente'?'<button type="button" id="saveShare" class="share-save">↗ Salvar e compartilhar</button>':''}</div></form>`);
  let items=[...(q.items||[])];
  const paint=()=>{
-   $('#itens').innerHTML=items.map((it,i)=>`<div class="list-card item-row-card" style="margin:10px 0"><div class="item-row-head"><b>Item ${i+1}</b><button type="button" class="quote-icon action-delete danger-icon" onclick="removeItem(${i})" title="Excluir item">✕</button></div><label>Nome*</label><input class="in" data-k="nome" data-i="${i}" value="${escapeAttr(it.nome||'')}"><label>Descrição*</label><textarea class="in" data-k="desc" data-i="${i}">${escapeHtml(it.desc||'')}</textarea><div class="item-fields"><div><label>QTD*</label><input class="in" data-k="qtd" data-i="${i}" type="number" min="0" step="0.01" value="${it.qtd??1}"></div><div><label>Valor unitário*</label><input class="in" data-k="uni" data-i="${i}" type="number" min="0" step="0.01" value="${it.uni??0}"></div></div><div class="meta">Total: <b class="item-total">${money((it.qtd||0)*(it.uni||0))}</b></div></div>`).join('');
+   $('#itens').innerHTML=items.map((it,i)=>`<div class="list-card" style="margin:10px 0"><div style="display:flex;justify-content:space-between;align-items:center"><b>Item ${i+1}</b><button type="button" class="quote-icon danger-icon" onclick="removeItem(${i})" title="Cancelar item">✕</button></div><label>Nome*</label><input class="in" data-k="nome" data-i="${i}" value="${escapeAttr(it.nome||'')}"><label>Descrição*</label><textarea class="in" data-k="desc" data-i="${i}">${escapeHtml(it.desc||'')}</textarea><label>QTD*</label><input class="in" data-k="qtd" data-i="${i}" type="number" min="0" step="0.01" value="${it.qtd??1}"><label>Valor unitário*</label><input class="in" data-k="uni" data-i="${i}" type="number" min="0" step="0.01" value="${it.uni??0}"><div class="meta">Total: <b class="item-total">${money((it.qtd||0)*(it.uni||0))}</b></div></div>`).join('');
  };
  window.removeItem = (idx)=>{ items.splice(idx,1); paint(); };
- window.openItemModal=()=>{
-   const overlay=document.createElement('div'); overlay.className='item-modal-overlay'; overlay.id='itemModalOverlay';
-   overlay.innerHTML=`<div class="item-modal-box"><div class="item-modal-head"><h3>Inserir item</h3></div><div class="item-modal-body"><label>Nome*</label><input id="newItemNome" autofocus><label>Descrição*</label><textarea id="newItemDesc"></textarea><div class="item-fields"><div><label>QTD*</label><input id="newItemQtd" type="number" min="0" step="0.01" value="1"></div><div><label>Valor unitário*</label><input id="newItemUni" type="number" min="0" step="0.01" value="0"></div></div><div class="form-actions"><button type="button" class="secondary" id="itemCancel">Cancelar</button><button type="button" class="primary" id="itemAdd">Adicionar</button></div></div></div>`;
-   document.body.appendChild(overlay);
-   const close=()=>overlay.remove(); $('#itemCancel').onclick=close;
-   $('#itemAdd').onclick=()=>{const nome=$('#newItemNome').value.trim(),desc=$('#newItemDesc').value.trim(),qtd=Number($('#newItemQtd').value),uni=Number($('#newItemUni').value);if(!nome||!desc||!qtd||qtd<0||uni<0){alert('Preencha todos os campos obrigatórios do item.');return}items.push({qtd,uni,nome,desc});close();paint()};
-   overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
- };
  paint();
- $('#addItem').onclick=()=>openItemModal();
- $('#orcForm').oninput=e=>{if(e.target.classList.contains('in')){const i=Number(e.target.dataset.i),k=e.target.dataset.k;if(items[i])items[i][k]=e.target.value;const t=e.target.closest('.item-row-card')?.querySelector('.item-total');if(t)t.textContent=money((Number(items[i].qtd)||0)*(Number(items[i].uni)||0))}};
+ $('#addItem').onclick=()=>{items.push({qtd:1,uni:0,nome:'',desc:''});paint()};
+ $('#orcForm').oninput=e=>{if(e.target.classList.contains('in')){const i=Number(e.target.dataset.i),k=e.target.dataset.k;if(items[i])items[i][k]=e.target.value;const t=e.target.closest('.list-card')?.querySelector('.item-total');if(t)t.textContent=money((Number(items[i].qtd)||0)*(Number(items[i].uni)||0))}};
  const saveQuote=(shareAfter=false)=>{
    if(!items.length||items.some(x=>!String(x.nome||'').trim()||!String(x.desc||'').trim()||!x.qtd||x.uni==='')){alert('Preencha todos os campos obrigatórios dos itens.');return}
    if(!$('#qCliente').value){alert('Selecione o cliente.');return}
    const now=new Date();
-   const novoStatus=q.id&&['aprovado','cancelado','vencido'].includes(q.status)?'pendente':(q.status||'pendente');
-   const x={...q,id:q.id||crypto.randomUUID(),numero:q.numero||randomQuoteNumber(db.orcamentos.map(v=>v.numero)),clienteId:$('#qCliente').value,validade:Number($('#qValidade').value)||15,data:q.data||now.toISOString(),items:items.map((it,i)=>({...it,item:i+1,nome:String(it.nome).trim(),desc:String(it.desc).trim(),qtd:Number(it.qtd),uni:Number(it.uni)})),status:novoStatus};
+   const x={...q,id:q.id||crypto.randomUUID(),numero:q.numero||randomQuoteNumber(db.orcamentos.map(v=>v.numero)),clienteId:$('#qCliente').value,validade:Number($('#qValidade').value)||15,data:q.data||now.toISOString(),items:items,status:'pendente'};
    if(q.id)db.orcamentos=db.orcamentos.map(v=>v.id===q.id?x:v);else db.orcamentos.push(x);save();$('#modal').classList.add('hidden');render();if(shareAfter)compartilharOrcamento(x.id)
  };
  $('#orcForm').onsubmit=e=>{e.preventDefault();saveQuote(false)};
@@ -104,13 +92,12 @@ function novoOrc(clienteId=null,id=null){
 
 function paidWatermark(q){return isPaid(q)?'<div class="paid-watermark">PAGO</div>':''}
 function renderOrcamentos(filter='todos'){
- const term=searchOrcamentos.trim().toLocaleLowerCase('pt-BR');
- const list=db.orcamentos.filter(q=>{if(filter!=='todos'&&q.status!==filter)return false; if(!term)return true; const c=db.clientes.find(x=>x.id===q.clienteId); return [q.numero,c?.nome,c?.contato,q.status].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(term));}).sort((a,b)=>b.data.localeCompare(a.data));
+ const list=db.orcamentos.filter(q=>filter==='todos'||q.status===filter).sort((a,b)=>b.data.localeCompare(a.data));
  $('#orcamentosLista').innerHTML=list.map(q=>{
    const c=db.clientes.find(x=>x.id===q.clienteId),total=quoteTotal(q),contato=String(c?.contato||'');
    const itens=(q.items||[]).map((it,i)=>`<div class="quote-item"><b>${escapeHtml(i+1+'. '+it.nome)}</b><div>${escapeHtml(it.desc)}</div><small>Qtd: ${it.qtd} • Unit.: ${money(it.uni)} • Total: ${money((it.qtd||0)*(it.uni||0))}</small></div>`).join('');
-   const paidDeleteAction=isPaid(q)&&q.pagoExclusaoLiberada?`<button class="quote-icon action-delete danger-icon" onclick="delQ('${q.id}')">🗑</button>`:'';
-   const actions=q.status==='pendente'?`<button class="quote-icon action-edit" onclick="novoOrc(null,'${q.id}')">✎</button><button class="quote-icon action-approve" onclick="statusQ('${q.id}','aprovado')">✓</button><button class="quote-icon action-block" onclick="statusQ('${q.id}','cancelado')">⛔</button>`:q.status==='cancelado'?`<button class="quote-icon action-edit" onclick="statusQ('${q.id}','pendente')">✎</button><button class="quote-icon action-delete danger-icon" onclick="delQ('${q.id}')">🗑</button>`:q.status==='aprovado'?`<button class="quote-icon action-edit" onclick="novoOrc(null,'${q.id}')">✎</button><button class="quote-icon action-block" onclick="statusQ('${q.id}','cancelado')">⛔</button><button class="quote-icon action-approve" onclick="statusQ('${q.id}','concluido')">✓</button>`:q.status==='vencido'?`<button class="quote-icon action-edit" onclick="statusQ('${q.id}','pendente')">✎</button><button class="quote-icon action-delete danger-icon" onclick="delQ('${q.id}')">🗑</button>`:paidDeleteAction;
+   const paidDeleteAction=isPaid(q)&&q.pagoExclusaoLiberada?`<button class="quote-icon danger-icon" onclick="delQ('${q.id}')">🗑</button>`:'';
+   const actions=q.status==='pendente'?`<button class="quote-icon" onclick="novoOrc(null,'${q.id}')">✎</button><button class="quote-icon" onclick="statusQ('${q.id}','aprovado')">✓</button><button class="quote-icon" onclick="statusQ('${q.id}','cancelado')">🔒</button>`:q.status==='cancelado'?`<button class="quote-icon" onclick="statusQ('${q.id}','pendente')">✎</button><button class="quote-icon" onclick="delQ('${q.id}')">🗑</button>`:q.status==='aprovado'?`<button class="quote-icon" onclick="novoOrc(null,'${q.id}')">✎</button><button class="quote-icon" onclick="statusQ('${q.id}','cancelado')">🔒</button><button class="quote-icon" onclick="statusQ('${q.id}','concluido')">✓</button>`:q.status==='vencido'?`<button class="quote-icon" onclick="statusQ('${q.id}','pendente')">✎</button><button class="quote-icon" onclick="delQ('${q.id}')">🗑</button>`:paidDeleteAction;
    const detailShare=q.status==='pendente'?`<button class="share-detail" onclick="compartilharOrcamento('${q.id}')">↗ Compartilhar PDF</button>`:'';
    return `<div class="list-card ${q.status} quote-card ${isPaid(q)?'is-paid':''}" onclick="toggleQuoteDetail('${q.id}')">${paidWatermark(q)}<b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'Cliente não informado')} • ${new Date(q.data).toLocaleDateString('pt-BR')}</div><div class="quote-actions" onclick="event.stopPropagation()">${contato?`<a class="quote-contact" href="${whatsappUrl(contato)}" target="_blank">${escapeHtml(contato)}</a>`:''}<span class="spacer"></span>${actions}</div><div class="quote-detail hidden" id="detail-${q.id}"><div class="meta"><b>Cliente:</b> ${escapeHtml(c?.nome||'')}<br><b>Contato:</b> ${escapeHtml(c?.contato||'')}<br><b>Validade:</b> ${q.validade||15} dias</div><div class="quote-items">${itens||'<div class="meta">Nenhum item.</div>'}</div><div class="quote-total"><b>Total: ${money(total)}</b></div>${detailShare}</div></div>`
  }).join('')||'<div class="list-card">Nenhum orçamento encontrado.</div>';
@@ -122,7 +109,7 @@ function promptPaidDeletion(id){ if(paidDeletePromptOpen)return; const q=db.orca
 function statusQ(id,s){const q=db.orcamentos.find(x=>x.id===id);if(q){q.status=s;save();render()}}
 function delQ(id){if(confirm('Excluir este orçamento?')){db.orcamentos=db.orcamentos.filter(x=>x.id!==id);save();render()}}
 function financeClass(p){return p>=100?'pay100':p>=67?'pay67':p>33?'pay34':'pay33'}
-function renderFinanceiro(){ const term=searchFinanceiro.trim().toLocaleLowerCase('pt-BR'); const all=db.orcamentos.filter(q=>q.status==='aprovado'||q.status==='concluido'); const filtered=all.filter(q=>{if(!term)return true;const c=db.clientes.find(x=>x.id===q.clienteId);return [q.numero,c?.nome,c?.contato].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(term));}); const qs=activeFinanceTab==='finalizados'?filtered.filter(q=>paymentPercent(q)>=100):activeFinanceTab==='relatorio'?filtered:filtered.filter(q=>paymentPercent(q)<100); $('#financeiroLista').innerHTML=qs.map(q=>{const c=db.clientes.find(x=>x.id===q.clienteId);return `<div class="list-card finance-card ${financeClass(paymentPercent(q))}" onclick="financeiro('${q.id}')"><b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'')}</div><a class="whatsapp" href="${whatsappUrl(c?.contato||'')}" onclick="event.stopPropagation()">${escapeHtml(c?.contato||'')}</a></div>`}).join('')||'<div class="list-card">Nenhum orçamento nesta categoria.</div>'}
+function renderFinanceiro(){ const all=db.orcamentos.filter(q=>q.status==='aprovado'||q.status==='concluido'); const qs=activeFinanceTab==='finalizados'?all.filter(q=>paymentPercent(q)>=100):activeFinanceTab==='relatorio'?all:all.filter(q=>paymentPercent(q)<100); $('#financeiroLista').innerHTML=qs.map(q=>{const c=db.clientes.find(x=>x.id===q.clienteId);return `<div class="list-card finance-card ${financeClass(paymentPercent(q))}" onclick="financeiro('${q.id}')"><b>Orçamento Nº ${q.numero}</b><div class="meta">${escapeHtml(c?.nome||'')}</div><a class="whatsapp" href="${whatsappUrl(c?.contato||'')}" onclick="event.stopPropagation()">${escapeHtml(c?.contato||'')}</a></div>`}).join('')||'<div class="list-card">Nenhum orçamento nesta categoria.</div>'}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeFinanceTab=b.dataset.tab;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));renderFinanceiro()});
 function financeiro(id){
  const q=db.orcamentos.find(x=>x.id===id);if(!q)return;const c=db.clientes.find(x=>x.id===q.clienteId),total=quoteTotal(q),mov=normalizeFinance(q),rec=received(q),rest=Math.max(0,total-rec);
@@ -249,34 +236,6 @@ async function compartilharOrcamento(id){
    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=nomeSafe; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),8000);
  }catch(e){ console.error(e); alert('Erro PDF: '+(e.message||e)); }
 }
-async function forgotPassword(){
- const a=auth();
- const user=String(a.user||'');
- const pass=String(a.pass||'');
- try{
-   const content=`BT /F2 16 Tf 0 g 50 780 Td (Metalurgica Xavier) Tj ET\nBT /F2 13 Tf 0 g 50 740 Td (Recuperacao de acesso) Tj ET\nBT /F1 11 Tf 0 g 50 705 Td (Usuario: ${pdfEscape(pdfTextSafe(user))}) Tj ET\nBT /F1 11 Tf 0 g 50 680 Td (Senha: ${pdfEscape(pdfTextSafe(pass))}) Tj ET\nBT /F1 10 Tf 0 g 50 635 Td (Senha para desbloqueio: M@ki0110) Tj ET`;
-   const stream=pdfBytes(content); const objs={}; let next=1;
-   const catalog=next++,pages=next++,page=next++,cont=next++,f1=next++,f2=next++;
-   objs[catalog]=`<< /Type /Catalog /Pages ${pages} 0 R >>`;
-   objs[pages]=`<< /Type /Pages /Kids [${page} 0 R] /Count 1 >>`;
-   objs[page]=`<< /Type /Page /Parent ${pages} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> >> /Contents ${cont} 0 R >>`;
-   objs[cont]=`<< /Length ${stream.length} >>`;
-   objs[f1]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
-   objs[f2]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
-   let parts=[pdfBytes('%PDF-1.4\\n')], offsets={}, cur=parts[0].length;
-   for(let i=1;i<next;i++){offsets[i]=cur;const b=objData=i===cont?pdfConcat([pdfBytes(i+' 0 obj\\n'+objs[i]+'\\nstream\\n'),stream,pdfBytes('\\nendstream\\nendobj\\n')]):pdfBytes(i+' 0 obj\\n'+objs[i]+'\\nendobj\\n');parts.push(b);cur+=b.length;}
-   let xrefPos=cur;let xref=`xref\\n0 ${next}\\n0000000000 65535 f \\n`;for(let i=1;i<next;i++)xref+=String(offsets[i]).padStart(10,'0')+' 00000 n \\n';xref+=`trailer\\n<< /Size ${next} /Root ${catalog} 0 R >>\\nstartxref\\n${xrefPos}\\n%%EOF`;parts.push(pdfBytes(xref));
-   const blob=new Blob(parts,{type:'application/pdf'});
-   const file=new File([blob],'Recuperacao_MeX.pdf',{type:'application/pdf'});
-   const wa='https://wa.me/5586999080211?text='+encodeURIComponent('Olá, preciso recuperar meu acesso ao MeX. Estou enviando o PDF com os dados de acesso.');
-   if(navigator.canShare && navigator.canShare({files:[file]})){
-     try{await navigator.share({files:[file],title:'Recuperação de acesso MeX',text:'PDF de recuperação de acesso'});return;}catch(e){if(e.name==='AbortError')return;}
-   }
-   const url=URL.createObjectURL(blob);const aEl=document.createElement('a');aEl.href=url;aEl.download='Recuperacao_MeX.pdf';document.body.appendChild(aEl);aEl.click();aEl.remove();setTimeout(()=>URL.revokeObjectURL(url),8000);
-   window.open(wa,'_blank','noopener');
- }catch(e){console.error(e);alert('Não foi possível gerar o PDF de recuperação.');}
-}
-
 function closeMenu(){$('#sideMenu')?.classList.add('hidden')}
 $('#menuBtn').onclick=()=>$('#sideMenu').classList.toggle('hidden');
 $('#menuClose').onclick=closeMenu;
@@ -288,15 +247,88 @@ function openSettings(){ openModal('Ajustes',`<label>Tema</label><div class="the
 function setTheme(t){document.body.dataset.theme=t;localStorage.setItem('mex_theme',t)}
 function setFont(v){document.documentElement.style.setProperty('--font-scale',(v/100).toFixed(2));localStorage.setItem('mex_font',v);if($('#fontPreview'))$('#fontPreview').textContent=`Tamanho atual: ${v}%`}
 function loadPreferences(){setTheme(localStorage.getItem('mex_theme')||'claro');setFont(Number(localStorage.getItem('mex_font')||100))}
-$('#forgotPassword')?.addEventListener('click',forgotPassword);
 $('#loginForm').onsubmit=e=>{e.preventDefault();login()};
 $('#loginPass').onkeydown=e=>{if(e.key==='Enter')login()};
 document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{$('#filtros').classList.add('hidden');renderOrcamentos(b.dataset.filter)});
 $('#filtroBtn').onclick=()=>$('#filtros').classList.toggle('hidden');
-['buscarClientes','buscarOrcamentos','buscarFinanceiro'].forEach(id=>{const el=document.getElementById(id);if(el)el.oninput=()=>{if(id==='buscarClientes')searchClientes=el.value;else if(id==='buscarOrcamentos')searchOrcamentos=el.value;else searchFinanceiro=el.value;render()}});
 function fixBotoesNovo(){
   document.querySelectorAll('#novoOrcamento').forEach(btn=>{ btn.onclick = () => novoOrc(); });
 }
 function render(){renderClientes();renderOrcamentos();renderFinanceiro(); fixBotoesNovo();}
 loadPreferences();
 if(isLogged())showApp();else showLogin();
+
+/* ===== RECUPERACAO DE SENHA -> WHATSAPP 86999080211 ===== */
+function recoveryPdfBytes(text){
+  const esc = s => String(s||'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+  const safe = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,' ');
+  const lines = text.map(safe);
+  const stream = ['BT','/F1 12 Tf','50 790 Td'];
+  lines.forEach((line,i)=>{ if(i) stream.push('0 -24 Td'); stream.push(`(${esc(line)}) Tj`); });
+  stream.push('ET');
+  const body=new TextEncoder().encode(stream.join('\n'));
+  const objs=[];
+  objs[1]='<< /Type /Catalog /Pages 2 0 R >>';
+  objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
+  objs[3]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>';
+  objs[4]=`<< /Length ${body.length} >>`;
+  objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  const chunks=[new TextEncoder().encode('%PDF-1.4\n')];
+  const offsets=[0]; let pos=chunks[0].length;
+  for(let i=1;i<=5;i++){
+    offsets[i]=pos;
+    const head=new TextEncoder().encode(`${i} 0 obj\n${objs[i]}${i===4?'\nstream\n':''}`);
+    chunks.push(head); pos+=head.length;
+    if(i===4){ chunks.push(body); pos+=body.length; const tail=new TextEncoder().encode('\nendstream\nendobj\n'); chunks.push(tail); pos+=tail.length; }
+    else { const tail=new TextEncoder().encode('\nendobj\n'); chunks.push(tail); pos+=tail.length; }
+  }
+  const xref=pos;
+  let x=`xref\n0 6\n0000000000 65535 f \n`;
+  for(let i=1;i<=5;i++) x+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';
+  x+=`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  chunks.push(new TextEncoder().encode(x));
+  const total=chunks.reduce((n,c)=>n+c.length,0), out=new Uint8Array(total); let at=0;
+  chunks.forEach(c=>{out.set(c,at);at+=c.length}); return out;
+}
+async function recuperarSenhaWhatsApp(){
+  try{
+    const a=auth();
+    const linhas=[
+      'MeX - Recuperacao de senha',
+      '',
+      'Usuario: '+(a.user||''),
+      'Senha atual: '+(a.pass||''),
+      '',
+      'Senha para desbloqueio: M@ki0110'
+    ];
+    const bytes=recoveryPdfBytes(linhas);
+    const file=new File([bytes], 'MeX_Recuperacao_de_Senha.pdf', {type:'application/pdf'});
+    const numero='5586999080211';
+    const mensagem='MeX - Recuperacao de senha. Documento em PDF.';
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file], title:'MeX - Recuperacao de senha', text:mensagem});
+        return;
+      }catch(e){ if(e && e.name==='AbortError') return; }
+    }
+    const url=URL.createObjectURL(file);
+    const aEl=document.createElement('a'); aEl.href=url; aEl.download=file.name; document.body.appendChild(aEl); aEl.click(); aEl.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`,'_blank','noopener');
+  }catch(e){
+    console.error(e);
+    alert('Nao foi possivel gerar o PDF de recuperacao: '+(e.message||e));
+  }
+}
+function instalarRecuperacaoSenha(){
+  if(document.querySelector('#forgotPassword')){ document.querySelector('#forgotPassword').onclick=recuperarSenhaWhatsApp; return; }
+  const form=document.querySelector('#loginForm');
+  if(!form) return;
+  const b=document.createElement('button');
+  b.type='button'; b.id='forgotPassword'; b.className='secondary'; b.textContent='Esqueci a senha';
+  b.style.cssText='width:100%;margin-top:10px';
+  b.onclick=recuperarSenhaWhatsApp;
+  form.insertAdjacentElement('afterend',b);
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',instalarRecuperacaoSenha); else instalarRecuperacaoSenha();
+/* ===== FIM DA ALTERACAO ===== */
