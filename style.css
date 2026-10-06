@@ -314,3 +314,65 @@ body[data-theme="escuro"] .forgot-password{color:#8ab4ff}
 #orcamentosLista .icon-delete{background:#e53935 !important;color:#fff !important;}
 #orcamentosLista .icon-approve{background:#35a853 !important;color:#fff !important;}
 #orcamentosLista .icon-block{background:#f28c28 !important;color:#fff !important;}
+
+/* ===== Ajuste solicitado: layout dos cards de Clientes ===== */
+#clientesLista .client-card{
+  position:relative;
+  min-height:72px !important;
+  padding:10px 12px !important;
+}
+#clientesLista .client-info{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  padding-right:82px !important;
+  padding-bottom:2px;
+  gap:3px;
+}
+#clientesLista .client-info > b{line-height:1.15;}
+#clientesLista .client-info .contact-link{
+  display:block;
+  margin:0;
+  padding:0;
+  border:0;
+  background:none;
+  color:#168b4b;
+  font:inherit;
+  font-weight:600;
+  line-height:1.15;
+  cursor:pointer;
+  text-align:left;
+}
+#clientesLista .client-actions{
+  position:absolute !important;
+  top:8px !important;
+  right:8px !important;
+  display:flex;
+  gap:7px;
+  margin:0 !important;
+}
+#clientesLista .novo-orcamento-client{
+  position:absolute;
+  right:8px;
+  bottom:8px;
+  display:inline-flex;
+  align-items:center;
+  min-height:32px;
+  margin:0 !important;
+  padding:6px 10px;
+}
+#clientesLista .client-card .contact-link:focus{outline:none;}
+.contact-choice-list{display:flex;flex-direction:column;gap:10px;}
+.contact-choice{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  text-decoration:none;
+  padding:12px 14px;
+  border-radius:9px;
+  font-weight:700;
+}
+.contact-choice span{font-weight:600;opacity:.9;white-space:nowrap;}
+.contact-choice.whatsapp{background:#e8f7ee;color:#168b4b;}
+.contact-choice.call{background:#eef3f8;color:#17324d;}

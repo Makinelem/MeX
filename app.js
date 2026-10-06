@@ -56,7 +56,7 @@ window.recuperarSenha=recuperarSenha;
 window.esqueciSenha=recuperarSenha;
 
 function logout(){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('mex_hidden_at');showLogin()}
-function showLogin(){document.body.classList.add('logged-out');$('#loginScreen').classList.remove('hidden');$('#appShell').classList.add('hidden')}
+function showLogin(){closeMenu();document.body.classList.add('logged-out');$('#loginScreen').classList.remove('hidden');$('#appShell').classList.add('hidden')}
 function showApp(){document.body.classList.remove('logged-out');$('#loginScreen').classList.add('hidden');$('#appShell').classList.remove('hidden');go(currentScreen||'home',false)}
 function checkInactivity(){ if(!isLogged())return; const h=Number(localStorage.getItem('mex_hidden_at')||0); if(h && Date.now()-h>=INACTIVITY){logout()}}
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){if(isLogged())localStorage.setItem('mex_hidden_at',String(Date.now()))} else {checkInactivity();if(isLogged())localStorage.removeItem('mex_hidden_at')}});
@@ -76,7 +76,8 @@ function openCliente(id=null){
  $('#cContato').oninput=e=>e.target.value=maskPhone(e.target.value); $('#cCep').oninput=e=>e.target.value=maskCep(e.target.value); $('#cDoc').oninput=e=>e.target.value=maskCpfCnpj(e.target.value);
  $('#clienteForm').onsubmit=e=>{e.preventDefault();const x={id:c.id||crypto.randomUUID(),nome:$('#cNome').value.trim(),contato:maskPhone($('#cContato').value),endereco:$('#cEndereco').value.trim(),cep:maskCep($('#cCep').value),doc:maskCpfCnpj($('#cDoc').value)};if(c.id)db.clientes=db.clientes.map(v=>v.id===c.id?x:v);else db.clientes.push(x);save();$('#modal').classList.add('hidden');render()};
 }
-function clienteDetalhes(id){ const c=db.clientes.find(x=>x.id===id);if(!c)return; const wa=whatsappUrl(c.contato),tel=telUrl(c.contato); openModal('Dados do cliente',`<div class="client-detail"><h3>${escapeHtml(c.nome)}</h3><div><b>Contato:</b> ${escapeHtml(c.contato||'-')}</div><div><b>Endereço:</b> ${escapeHtml(c.endereco||'-')}</div><div><b>CEP:</b> ${escapeHtml(c.cep||'-')}</div><div><b>CPF/CNPJ:</b> ${escapeHtml(c.doc||'-')}</div><div class="contact-actions">${c.contato?`<a class="contact-btn whatsapp" href="${wa}" target="_blank" rel="noopener">💬 WhatsApp</a><a class="contact-btn call" href="${tel}">☎ Chamada</a>`:''}</div><div class="form-actions"><button onclick="openCliente('${id}')">✎ Editar</button><button class="danger" onclick="delCliente('${id}')">🗑 Excluir</button></div></div>`);}
+function opcoesContato(id){ const c=db.clientes.find(x=>x.id===id);if(!c||!c.contato)return; const wa=whatsappUrl(c.contato),digits=onlyDigits(c.contato); const waCall='https://wa.me/'+digits; const tel=telUrl(c.contato); openModal('Contato - '+escapeHtml(c.contato),`<div class="contact-choice-list"><a class="contact-choice whatsapp" href="${wa}" target="_blank" rel="noopener">💬 Conversa no WhatsApp <span>${escapeHtml(c.contato)}</span></a><a class="contact-choice whatsapp" href="${waCall}" target="_blank" rel="noopener">📞 Chamada WhatsApp <span>${escapeHtml(c.contato)}</span></a><a class="contact-choice call" href="${tel}">☎ Chamada direta <span>${escapeHtml(c.contato)}</span></a></div>`);}
+function clienteDetalhes(id){ const c=db.clientes.find(x=>x.id===id);if(!c)return; openModal('Dados do cliente',`<div class="client-detail"><h3>${escapeHtml(c.nome)}</h3><div><b>Contato:</b> ${escapeHtml(c.contato||'-')}</div><div><b>Endereço:</b> ${escapeHtml(c.endereco||'-')}</div><div><b>CEP:</b> ${escapeHtml(c.cep||'-')}</div><div><b>CPF/CNPJ:</b> ${escapeHtml(c.doc||'-')}</div></div>`);}
 function delCliente(id){ const c=db.clientes.find(x=>x.id===id);if(!c)return; if(confirm(`Excluir o cliente ${c.nome}?`)){db.clientes=db.clientes.filter(x=>x.id!==id);save();$('#modal').classList.add('hidden');render()}}
 
 function quoteTotal(q){return(q.items||[]).reduce((s,x)=>s+(Number(x.qtd)||0)*(Number(x.uni)||0),0)}
@@ -96,7 +97,7 @@ function clienteTemDebito(id){
 function renderClientes(){
   $('#clientesLista').innerHTML=db.clientes.map(c=>{
     const classe = clienteTemDebito(c.id)? ' cli-vermelho' : '';
-    return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><div class="client-info"><b>${escapeHtml(c.nome)}</b><a class="meta contact-link" href="${telUrl(c.contato)}" onclick="event.stopPropagation()">${escapeHtml(c.contato)}</a></div><div class="actions client-actions" onclick="event.stopPropagation()"><button class="quote-icon icon-edit" title="Editar" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon icon-delete" title="Excluir" onclick="delCliente('${c.id}')">🗑</button></div><button class="novo-orcamento-client" onclick="event.stopPropagation();novoOrc('${c.id}')">+ Novo orçamento</button></div>`
+    return `<div class="list-card client-card${classe}" onclick="clienteDetalhes('${c.id}')"><div class="client-info"><b>${escapeHtml(c.nome)}</b><button type="button" class="meta contact-link" onclick="event.stopPropagation();opcoesContato('${c.id}')">${escapeHtml(c.contato)}</button></div><div class="actions client-actions" onclick="event.stopPropagation()"><button class="quote-icon icon-edit" title="Editar" onclick="openCliente('${c.id}')">✎</button><button class="quote-icon icon-delete" title="Excluir" onclick="delCliente('${c.id}')">🗑</button></div><button class="novo-orcamento-client" onclick="event.stopPropagation();novoOrc('${c.id}')">+ Novo orçamento</button></div>`
   }).join('')||'<div class="list-card">Nenhum cliente cadastrado.</div>'
 }
 
