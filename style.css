@@ -102,7 +102,7 @@ textarea{min-height:80px}
 .danger-icon{color:#b71c1c!important}
 
 /* Login e Menu */
-.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f4f6f8}
+.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#4a4a4a}
 .login-box{width:min(390px,100%);background:#fff;border-radius:20px;padding:26px;box-shadow:0 8px 30px #0002;text-align:center}
 .login-logo{max-width:150px;max-height:90px;object-fit:contain;margin:0 auto 8px}
 .login-box h1{margin:12px 0}
@@ -148,7 +148,7 @@ body[data-theme="escuro"] .side-menu-box,
 body[data-theme="escuro"] .filters{background:#1d2731;color:#edf2f6}
 body[data-theme="escuro"] input,
 body[data-theme="escuro"] textarea,
-body[data-theme="escuro"] select{background:#27333e;color:#515151;border-color:#46535f}
+body[data-theme="escuro"] select{background:#27333e;color:#fff;border-color:#46535f}
 body[data-theme="escuro"] .meta,
 body[data-theme="escuro"] .card span{color:#b7c0c8}
 body[data-theme="escuro"] .secondary,
