@@ -234,8 +234,31 @@ async function gerarPdfOrcamento(q){
  const l4='Telefone/ Contato: '; text(l4,30,y,8.5,false); text(maskPhone(c.contato||'-'),30+pdfTextWidthApprox(l4,8.5,false),y,8.5,true);
  line(30,678,565,678); rect(30,623,535,17);
  text('ITEM',36,628,8.2,true); text('DESCRICAO',75,628,8.2,true); text('QTD',370,628,8.2,true); text('VALOR UNI',425,628,8.2,true); text('VALOR TOTAL',495,628,8.2,true);
- let rowTop=623;
- (q.items||[]).forEach((it,i)=>{ const bottom=rowTop-36; line(30,bottom,565,bottom); text(String(i+1),35,rowTop-14,8.8,true); text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true); wrapPdfText(it.desc||'',60).slice(0,2).forEach((d,k)=>text(d,75,rowTop-22-k*7,8.1)); text(String(it.qtd??0),370,rowTop-14,8.8); text(money(it.uni),425,rowTop-14,8.8); text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8); rowTop=bottom; });
+ const wrapPdfTextWidth=(text,maxWidth,size=8.1,bold=false)=>{
+ const words=pdfTextSafe(text).trim().split(/\s+/).filter(Boolean),lines=[];
+ let line='';
+ words.forEach(w=>{
+   const test=(line+' '+w).trim();
+   if(line && pdfTextWidthApprox(test,size,bold)>maxWidth){ lines.push(line); line=w; }
+   else line=test;
+ });
+ if(line) lines.push(line);
+ return lines.length?lines:[''];
+};
+let rowTop=623;
+(q.items||[]).forEach((it,i)=>{
+ const descLines=wrapPdfTextWidth(it.desc||'',285,8.1,false);
+ const rowHeight=Math.max(36,29+(descLines.length-1)*7);
+ const bottom=rowTop-rowHeight;
+ line(30,bottom,565,bottom);
+ text(String(i+1),35,rowTop-14,8.8,true);
+ text(pdfTextSafe(it.nome||''),75,rowTop-14,8.8,true);
+ descLines.forEach((d,k)=>text(d,75,rowTop-22-k*7,8.1));
+ text(String(it.qtd??0),370,rowTop-14,8.8);
+ text(money(it.uni),425,rowTop-14,8.8);
+ text(money((Number(it.qtd)||0)*(Number(it.uni)||0)),495,rowTop-14,8.8);
+ rowTop=bottom;
+});
  rect(30,47,330,33); rect(370,47,195,33);
  text('Proposta sujeita a aprovacao.',40,69,7.5); text('Garantia de fabrica conforme contrato.',40,56,7.5);
  text('VALOR TOTAL',380,69,8,true); text(money(total),380,52,13.5,true);
