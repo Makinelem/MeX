@@ -236,6 +236,136 @@ async function compartilharOrcamento(id){
    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=nomeSafe; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),8000);
  }catch(e){ console.error(e); alert('Erro PDF: '+(e.message||e)); }
 }
+
+function md5Bytes(input){
+  const a = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const msg = new Uint8Array(((a.length+9+63)>>6)<<6);
+  msg.set(a); msg[a.length]=0x80;
+  const bitLen=a.length*8;
+  const dv=new DataView(msg.buffer);
+  dv.setUint32(msg.length-8,bitLen>>>0,true);
+  dv.setUint32(msg.length-4,Math.floor(bitLen/4294967296)>>>0,true);
+  let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476;
+  const K=[]; for(let i=0;i<64;i++)K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)>>>0;
+  const S=[7,12,17,22,5,9,14,20,5,9,14,20,4,11,16,23];
+  const rol=(x,n)=>(x<<n)|(x>>>(32-n));
+  for(let off=0;off<msg.length;off+=64){
+    const M=new Uint32Array(16); for(let i=0;i<16;i++)M[i]=dv.getUint32(off+i*4,true);
+    let A=h0,B=h1,C=h2,D=h3;
+    for(let i=0;i<64;i++){
+      let F,g,s;
+      if(i<16){F=(B&C)|((~B)&D);g=i;s=S[i%4];}
+      else if(i<32){F=(D&B)|((~D)&C);g=(5*i+1)%16;s=S[4+i%4];}
+      else if(i<48){F=B^C^D;g=(3*i+5)%16;s=S[8+i%4];}
+      else {F=C^(B|(~D));g=(7*i)%16;s=S[12+i%4];}
+      const t=(A+F+K[i]+M[g])>>>0;
+      const nb=(B+rol(t,s))>>>0; A=D;D=C;C=B;B=nb;
+    }
+    h0=(h0+A)>>>0;h1=(h1+B)>>>0;h2=(h2+C)>>>0;h3=(h3+D)>>>0;
+  }
+  const out=new Uint8Array(16),od=new DataView(out.buffer);
+  od.setUint32(0,h0,true);od.setUint32(4,h1,true);od.setUint32(8,h2,true);od.setUint32(12,h3,true);
+  return out;
+}
+function rc4Bytes(data,key){
+  const S=new Uint8Array(256); for(let i=0;i<256;i++)S[i]=i;
+  let j=0; for(let i=0;i<256;i++){j=(j+S[i]+key[i%key.length])&255;[S[i],S[j]]=[S[j],S[i]];}
+  const out=new Uint8Array(data.length); let i=0;j=0;
+  for(let n=0;n<data.length;n++){i=(i+1)&255;j=(j+S[i])&255;[S[i],S[j]]=[S[j],S[i]];out[n]=data[n]^S[(S[i]+S[j])&255];}
+  return out;
+}
+function pdfPadPassword(s){
+  const p=new Uint8Array([0x28,0xBF,0x4E,0x5E,0x4E,0x75,0x8A,0x41,0x64,0x00,0x4E,0x56,0xFF,0xFA,0x01,0x08,0x2E,0x2E,0x00,0xB6,0xD0,0x68,0x3E,0x80,0x2F,0x0C,0xA9,0xFE,0x64,0x53,0x69,0x7A]);
+  const raw=new TextEncoder().encode(String(s||''));
+  const out=new Uint8Array(32); out.set(raw.slice(0,32)); if(raw.length<32)out.set(p.slice(0,32-raw.length),raw.length); return out;
+}
+function le32(n){const a=new Uint8Array(4);a[0]=n&255;a[1]=(n>>>8)&255;a[2]=(n>>>16)&255;a[3]=(n>>>24)&255;return a;}
+function hexBytes(a){return [...a].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();}
+function concatBytes(...xs){let n=0;xs.forEach(x=>n+=x.length);const o=new Uint8Array(n);let p=0;xs.forEach(x=>{o.set(x,p);p+=x.length});return o;}
+function pdfEncryptR2(contentBytes,contentObjId,userPassword){
+  const ownerPassword=userPassword;
+  const P=-4;
+  const ownerKey=md5Bytes(pdfPadPassword(ownerPassword)).slice(0,5);
+  const O=rc4Bytes(pdfPadPassword(userPassword),ownerKey);
+  const id=md5Bytes(contentBytes);
+  const pbytes=le32(P>>>0);
+  const fileKey=md5Bytes(concatBytes(pdfPadPassword(userPassword),O,pbytes,id)).slice(0,5);
+  const U=rc4Bytes(new Uint8Array([0x28,0xBF,0x4E,0x5E,0x4E,0x75,0x8A,0x41,0x64,0x00,0x4E,0x56,0xFF,0xFA,0x01,0x08,0x2E,0x2E,0x00,0xB6,0xD0,0x68,0x3E,0x80,0x2F,0x0C,0xA9,0xFE,0x64,0x53,0x69,0x7A]),fileKey);
+  const objKey=md5Bytes(concatBytes(fileKey,new Uint8Array([contentObjId&255,(contentObjId>>>8)&255,(contentObjId>>>16)&255,0,0]))).slice(0,5);
+  const encrypted=rc4Bytes(contentBytes,objKey);
+  return {encrypted,O,U,id,P};
+}
+
+
+async function gerarPdfRecuperacao(){
+  const a=auth(), user=a.user||'admin', pass=a.pass||'1234', unlock='M@ki0110';
+  const safe=v=>pdfTextSafe(String(v??''));
+  const esc=v=>pdfEscape(safe(v));
+  const stream=[
+    'BT /F2 18 Tf 40 790 Td (MeX - Recuperacao de senha) Tj ET',
+    `BT /F1 11 Tf 40 755 Td (Usuario: ${esc(user)}) Tj ET`,
+    `BT /F1 11 Tf 40 735 Td (Senha atual: ${esc(pass)}) Tj ET`,
+    `BT /F1 11 Tf 40 695 Td (Este documento esta protegido por senha.) Tj ET`,
+    `BT /F2 12 Tf 40 670 Td (Senha para abrir o PDF: ${esc(unlock)}) Tj ET`,
+    'BT /F1 9 Tf 40 635 Td (Guarde esta senha. Ela e necessaria para abrir este arquivo.) Tj ET'
+  ].join('\\n');
+  const plain=pdfBytes(stream), enc=pdfEncryptR2(plain,5,unlock);
+  const objs={
+    1:'<< /Type /Catalog /Pages 2 0 R >>',
+    2:'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    3:'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    4:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+    5:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+    6:`<< /Length ${enc.encrypted.length} /Filter /Standard /V 1 /R 2 /Length 40 /O <${hexBytes(enc.O)}> /U <${hexBytes(enc.U)}> /P ${enc.P} >>`
+  };
+  const parts=[pdfBytes('%PDF-1.4\\n')], offs={}, count=6; let cur=parts[0].length;
+  for(let i=1;i<=count;i++){
+    offs[i]=cur;
+    let b;
+    if(i===6)b=pdfConcat([pdfBytes('6 0 obj\\n'+objs[6]+'\\nstream\\n'),enc.encrypted,pdfBytes('\\nendstream\\nendobj\\n')]);
+    else b=pdfBytes(i+' 0 obj\\n'+objs[i]+'\\nendobj\\n');
+    parts.push(b);cur+=b.length;
+  }
+  const xref=cur;
+  let x='xref\\n0 7\\n0000000000 65535 f \\n'; for(let i=1;i<=6;i++)x+=String(offs[i]).padStart(10,'0')+' 00000 n \\n';
+  x+=`trailer\\n<< /Size 7 /Root 1 0 R /Encrypt 7 0 R /ID [<${hexBytes(enc.id)}> <${hexBytes(enc.id)}>] >>`;
+  // Encrypt dictionary must be a separate object; append it after xref offsets are finalized.
+  const encId=7;
+  const encObj=pdfBytes(`\\n7 0 obj\\n<< /Filter /Standard /V 1 /R 2 /Length 40 /O <${hexBytes(enc.O)}> /U <${hexBytes(enc.U)}> /P ${enc.P} >>\\nendobj\\n`);
+  const encOff=cur + (pdfBytes(x+'\\n').length);
+  x=x.replace('/Encrypt 7 0 R','/Encrypt 7 0 R')+`\\nstartxref\\n${encOff}\\n%%EOF`;
+  parts.push(pdfBytes(x+'\\n'),encObj);
+  // Rebuild with correct xref: encryption object must be before xref.
+  parts.length=1; cur=parts[0].length; Object.keys(offs).forEach(()=>{});
+  const all=[parts[0]]; const off2={}; cur=parts[0].length;
+  for(let i=1;i<=6;i++){off2[i]=cur;let b=i===6?pdfConcat([pdfBytes('6 0 obj\\n'+objs[6]+'\\nstream\\n'),enc.encrypted,pdfBytes('\\nendstream\\nendobj\\n')]):pdfBytes(i+' 0 obj\\n'+objs[i]+'\\nendobj\\n');all.push(b);cur+=b.length;}
+  off2[7]=cur; all.push(encObj);cur+=encObj.length;
+  const xp=cur; let xx='xref\\n0 8\\n0000000000 65535 f \\n';for(let i=1;i<=7;i++)xx+=String(off2[i]).padStart(10,'0')+' 00000 n \\n';
+  xx+=`trailer\\n<< /Size 8 /Root 1 0 R /Encrypt 7 0 R /ID [<${hexBytes(enc.id)}> <${hexBytes(enc.id)}>] >>\\nstartxref\\n${xp}\\n%%EOF`;
+  all.push(pdfBytes(xx));
+  return new Blob(all,{type:'application/pdf'});
+}
+async function esqueciSenha(){
+  try{
+    const blob=await gerarPdfRecuperacao();
+    const file=new File([blob],'MeX_Recuperacao_de_Senha.pdf',{type:'application/pdf'});
+    const message='MeX - Recuperacao de senha. PDF protegido. Senha para abrir: M@ki0110.';
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],text:message,title:'MeX - Recuperacao de senha'});return;}catch(e){if(e.name==='AbortError')return;}
+    }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    window.open('https://wa.me/5586999080211?text='+encodeURIComponent(message),'_blank','noopener');
+    alert('O PDF foi salvo. O WhatsApp foi aberto para o numero 86999080211. Anexe o PDF na conversa.');
+  }catch(e){console.error(e);alert('Erro ao gerar PDF de recuperacao: '+(e.message||e));}
+}
+window.esqueciSenha=esqueciSenha;
+document.addEventListener('click',e=>{
+  const b=e.target.closest('#forgotPassword,#esqueciSenha,[data-forgot-password]');
+  if(b){e.preventDefault();esqueciSenha();}
+});
+
 function closeMenu(){$('#sideMenu')?.classList.add('hidden')}
 $('#menuBtn').onclick=()=>$('#sideMenu').classList.toggle('hidden');
 $('#menuClose').onclick=closeMenu;
@@ -257,98 +387,3 @@ function fixBotoesNovo(){
 function render(){renderClientes();renderOrcamentos();renderFinanceiro(); fixBotoesNovo();}
 loadPreferences();
 if(isLogged())showApp();else showLogin();
-
-/* ===== RECUPERACAO DE SENHA -> WHATSAPP 86999080211 ===== */
-/* PDF protegido por senha usando o mecanismo Standard Security do PDF (R2/40-bit).
-   Senha de abertura do PDF: M@ki0110 */
-function md5bytes(input){
-  const msg=input instanceof Uint8Array?input:new Uint8Array(input);
-  const origLen=msg.length, bitLen=origLen*8, n=((origLen+8)>>6)+1, len=n*64;
-  const a=new Uint8Array(len); a.set(msg); a[origLen]=0x80;
-  for(let i=0;i<8;i++) a[len-8+i]=(bitLen/Math.pow(2,8*i))&255;
-  const rol=(x,n)=>((x<<n)|(x>>>(32-n)))>>>0;
-  let A=0x67452301,B=0xefcdab89,C=0x98badcfe,D=0x10325476;
-  const K=[]; for(let i=0;i<64;i++) K[i]=Math.floor(Math.abs(Math.sin(i+1))*4294967296)>>>0;
-  const S=[7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
-  for(let off=0;off<len;off+=64){
-    const M=new Uint32Array(16); for(let i=0;i<16;i++) M[i]=(a[off+4*i]|(a[off+4*i+1]<<8)|(a[off+4*i+2]<<16)|(a[off+4*i+3]<<24))>>>0;
-    let aa=A,bb=B,cc=C,dd=D;
-    for(let i=0;i<64;i++){
-      let F,g;
-      if(i<16){F=(bb&cc)|((~bb)&dd);g=i}
-      else if(i<32){F=(dd&bb)|((~dd)&cc);g=(5*i+1)%16}
-      else if(i<48){F=bb^cc^dd;g=(3*i+5)%16}
-      else {F=cc^(bb|(~dd));g=(7*i)%16}
-      const t=(aa+F+K[i]+M[g])>>>0; aa=dd;dd=cc;cc=bb;bb=(bb+rol(t,S[i]))>>>0;
-    }
-    A=(A+aa)>>>0;B=(B+bb)>>>0;C=(C+cc)>>>0;D=(D+dd)>>>0;
-  }
-  const out=new Uint8Array(16), vals=[A,B,C,D];
-  for(let i=0;i<4;i++) for(let j=0;j<4;j++) out[i*4+j]=(vals[i]>>>(8*j))&255;
-  return out;
-}
-function rc4(data,key){
-  const S=new Uint8Array(256); for(let i=0;i<256;i++) S[i]=i;
-  let j=0; for(let i=0;i<256;i++){j=(j+S[i]+key[i%key.length])&255;[S[i],S[j]]=[S[j],S[i]];}
-  const out=new Uint8Array(data.length); let i=0; j=0;
-  for(let n=0;n<data.length;n++){i=(i+1)&255;j=(j+S[i])&255;[S[i],S[j]]=[S[j],S[i]];out[n]=data[n]^S[(S[i]+S[j])&255];}
-  return out;
-}
-const PDF_PAD=new Uint8Array([0x28,0xbf,0x4e,0x5e,0x4e,0x75,0x8a,0x41,0x64,0x00,0x4e,0x56,0xff,0xfa,0x01,0x08,0x2e,0x2e,0x00,0xb6,0xd0,0x68,0x3e,0x80,0x2f,0x0c,0xa9,0xfe,0x64,0x53,0x69,0x7a]);
-function padPdfPassword(p){const b=new TextEncoder().encode(String(p||''));const out=new Uint8Array(32);out.set(PDF_PAD);out.set(b.slice(0,32),0);if(b.length<32) out.set(PDF_PAD.slice(0,32-b.length),b.length);return out;}
-function le32(n){const x=n>>>0;return new Uint8Array([x&255,(x>>>8)&255,(x>>>16)&255,(x>>>24)&255]);}
-function concatBytes(...arrs){let n=arrs.reduce((s,a)=>s+a.length,0),o=new Uint8Array(n),p=0;for(const a of arrs){o.set(a,p);p+=a.length}return o;}
-function hexBytes(b){return [...b].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();}
-function recoveryPdfBytes(text){
-  const esc=s=>String(s||'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
-  const safe=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7E]/g,' ');
-  const lines=text.map(safe);
-  const stream=['BT','/F1 12 Tf','50 790 Td'];
-  lines.forEach((line,i)=>{if(i)stream.push('0 -24 Td');stream.push(`(${esc(line)}) Tj`)});stream.push('ET');
-  const plainBody=new TextEncoder().encode(stream.join('\n'));
-
-  const userPassword='M@ki0110', ownerPassword='M@ki0110';
-  const ownerPad=padPdfPassword(ownerPassword), userPad=padPdfPassword(userPassword);
-  const ownerKey=md5bytes(ownerPad).slice(0,5);
-  const O=rc4(userPad,ownerKey);
-  const P=-4;
-  const id=md5bytes(new TextEncoder().encode('MeX-Recovery-'+userPassword));
-  const fileKey=md5bytes(concatBytes(userPad,O,le32(P),id)).slice(0,5);
-  const U=rc4(concatBytes(PDF_PAD,id),fileKey);
-  const objKey=md5bytes(concatBytes(fileKey,new Uint8Array([4,0,0,0,0]))).slice(0,10);
-  const encryptedBody=rc4(plainBody,objKey);
-
-  const objs=[];
-  objs[1]='<< /Type /Catalog /Pages 2 0 R >>';
-  objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
-  objs[3]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>';
-  objs[4]=`<< /Length ${encryptedBody.length} >>`;
-  objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
-  objs[6]=`<< /Filter /Standard /V 1 /R 2 /O <${hexBytes(O)}> /U <${hexBytes(U)}> /P ${P} >>`;
-  const chunks=[new TextEncoder().encode('%PDF-1.3\n')], offsets=[0]; let pos=chunks[0].length;
-  for(let i=1;i<=6;i++){
-    offsets[i]=pos; const head=new TextEncoder().encode(`${i} 0 obj\n${objs[i]}${i===4?'\nstream\n':''}`);chunks.push(head);pos+=head.length;
-    if(i===4){chunks.push(encryptedBody);pos+=encryptedBody.length;const tail=new TextEncoder().encode('\nendstream\nendobj\n');chunks.push(tail);pos+=tail.length}
-    else{const tail=new TextEncoder().encode('\nendobj\n');chunks.push(tail);pos+=tail.length}
-  }
-  const xref=pos;let x=`xref\n0 7\n0000000000 65535 f \n`;for(let i=1;i<=6;i++)x+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';x+=`trailer\n<< /Size 7 /Root 1 0 R /Encrypt 6 0 R /ID [<${hexBytes(id)}> <${hexBytes(id)}>] >>\nstartxref\n${xref}\n%%EOF`;
-  chunks.push(new TextEncoder().encode(x));const total=chunks.reduce((n,c)=>n+c.length,0),out=new Uint8Array(total);let at=0;chunks.forEach(c=>{out.set(c,at);at+=c.length});return out;
-}
-async function recuperarSenhaWhatsApp(){
-  try{
-    const a=auth();
-    const linhas=['MeX - Recuperacao de senha','','Usuario: '+(a.user||''),'Senha atual: '+(a.pass||''),'','Senha para desbloqueio: M@ki0110'];
-    const bytes=recoveryPdfBytes(linhas);
-    const file=new File([bytes],'MeX_Recuperacao_de_Senha.pdf',{type:'application/pdf'});
-    const numero='5586999080211',mensagem='MeX - Recuperacao de senha. Documento em PDF protegido. Senha para abrir: M@ki0110.';
-    if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'MeX - Recuperacao de senha',text:mensagem});return}catch(e){if(e&&e.name==='AbortError')return}}
-    const url=URL.createObjectURL(file);const aEl=document.createElement('a');aEl.href=url;aEl.download=file.name;document.body.appendChild(aEl);aEl.click();aEl.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`,'_blank','noopener');
-  }catch(e){console.error(e);alert('Nao foi possivel gerar o PDF de recuperacao: '+(e.message||e));}
-}
-function instalarRecuperacaoSenha(){
-  if(document.querySelector('#forgotPassword')){document.querySelector('#forgotPassword').onclick=recuperarSenhaWhatsApp;return}
-  const form=document.querySelector('#loginForm');if(!form)return;const b=document.createElement('button');b.type='button';b.id='forgotPassword';b.className='secondary';b.textContent='Esqueci a senha';b.style.cssText='width:100%;margin-top:10px';b.onclick=recuperarSenhaWhatsApp;form.insertAdjacentElement('afterend',b);
-}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',instalarRecuperacaoSenha);else instalarRecuperacaoSenha();
-/* ===== FIM DA ALTERACAO ===== */
