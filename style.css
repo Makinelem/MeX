@@ -376,3 +376,68 @@ body[data-theme="escuro"] .forgot-password{color:#8ab4ff}
 .contact-choice span{font-weight:600;opacity:.9;white-space:nowrap;}
 .contact-choice.whatsapp{background:#e8f7ee;color:#168b4b;}
 .contact-choice.call{background:#eef3f8;color:#17324d;}
+
+/* ===== Correção final: separar totalmente Nome, telefone, ícones e Novo orçamento ===== */
+#clientesLista .client-card{
+  position:relative !important;
+  min-height:108px !important;
+  padding:0 12px !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+}
+#clientesLista .client-info{
+  display:block !important;
+  position:static !important;
+  padding:0 !important;
+  margin:0 !important;
+}
+#clientesLista .client-info > b{
+  position:absolute !important;
+  left:12px !important;
+  top:13px !important;
+  right:100px !important;
+  line-height:1.2 !important;
+  margin:0 !important;
+  white-space:normal !important;
+}
+#clientesLista .client-info .contact-link{
+  position:absolute !important;
+  left:12px !important;
+  bottom:13px !important;
+  right:145px !important;
+  width:auto !important;
+  margin:0 !important;
+  padding:0 !important;
+  line-height:1.2 !important;
+  white-space:nowrap !important;
+}
+#clientesLista .client-actions{
+  position:absolute !important;
+  top:10px !important;
+  right:10px !important;
+  display:flex !important;
+  gap:7px !important;
+  margin:0 !important;
+  padding:0 !important;
+  z-index:3 !important;
+}
+#clientesLista .client-actions button{
+  width:32px !important;
+  height:32px !important;
+  min-width:32px !important;
+  min-height:32px !important;
+  padding:0 !important;
+}
+#clientesLista .novo-orcamento-client{
+  position:absolute !important;
+  right:10px !important;
+  bottom:10px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-height:32px !important;
+  margin:0 !important;
+  padding:6px 10px !important;
+  z-index:3 !important;
+  white-space:nowrap !important;
+}
