@@ -299,51 +299,41 @@ function pdfEncryptR2(contentBytes,contentObjId,userPassword){
 
 async function gerarPdfRecuperacao(){
   const a=auth(), user=a.user||'admin', pass=a.pass||'1234', unlock='M@ki0110';
-  const safe=v=>pdfTextSafe(String(v??''));
-  const esc=v=>pdfEscape(safe(v));
+  const esc=v=>pdfEscape(pdfTextSafe(String(v??'')));
   const stream=[
     'BT /F2 18 Tf 40 790 Td (MeX - Recuperacao de senha) Tj ET',
     `BT /F1 11 Tf 40 755 Td (Usuario: ${esc(user)}) Tj ET`,
     `BT /F1 11 Tf 40 735 Td (Senha atual: ${esc(pass)}) Tj ET`,
-    `BT /F1 11 Tf 40 695 Td (Este documento esta protegido por senha.) Tj ET`,
+    'BT /F1 11 Tf 40 695 Td (Este documento esta protegido por senha.) Tj ET',
     `BT /F2 12 Tf 40 670 Td (Senha para abrir o PDF: ${esc(unlock)}) Tj ET`,
     'BT /F1 9 Tf 40 635 Td (Guarde esta senha. Ela e necessaria para abrir este arquivo.) Tj ET'
   ].join('\\n');
-  const plain=pdfBytes(stream), enc=pdfEncryptR2(plain,5,unlock);
+  const plain=pdfBytes(stream);
+  const enc=pdfEncryptR2(plain,6,unlock);
   const objs={
     1:'<< /Type /Catalog /Pages 2 0 R >>',
     2:'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     3:'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
     4:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
     5:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-    6:`<< /Length ${enc.encrypted.length} /Filter /Standard /V 1 /R 2 /Length 40 /O <${hexBytes(enc.O)}> /U <${hexBytes(enc.U)}> /P ${enc.P} >>`
+    6:`<< /Length ${enc.encrypted.length} >>`,
+    7:`<< /Filter /Standard /V 1 /R 2 /Length 40 /O <${hexBytes(enc.O)}> /U <${hexBytes(enc.U)}> /P ${enc.P} >>`
   };
-  const parts=[pdfBytes('%PDF-1.4\\n')], offs={}, count=6; let cur=parts[0].length;
+  const parts=[pdfBytes('%PDF-1.4\\n')], offs={}, count=7;
+  let cur=parts[0].length;
   for(let i=1;i<=count;i++){
     offs[i]=cur;
     let b;
-    if(i===6)b=pdfConcat([pdfBytes('6 0 obj\\n'+objs[6]+'\\nstream\\n'),enc.encrypted,pdfBytes('\\nendstream\\nendobj\\n')]);
+    if(i===6) b=pdfConcat([pdfBytes('6 0 obj\\n'+objs[6]+'\\nstream\\n'),enc.encrypted,pdfBytes('\\nendstream\\nendobj\\n')]);
     else b=pdfBytes(i+' 0 obj\\n'+objs[i]+'\\nendobj\\n');
-    parts.push(b);cur+=b.length;
+    parts.push(b); cur+=b.length;
   }
-  const xref=cur;
-  let x='xref\\n0 7\\n0000000000 65535 f \\n'; for(let i=1;i<=6;i++)x+=String(offs[i]).padStart(10,'0')+' 00000 n \\n';
-  x+=`trailer\\n<< /Size 7 /Root 1 0 R /Encrypt 7 0 R /ID [<${hexBytes(enc.id)}> <${hexBytes(enc.id)}>] >>`;
-  // Encrypt dictionary must be a separate object; append it after xref offsets are finalized.
-  const encId=7;
-  const encObj=pdfBytes(`\\n7 0 obj\\n<< /Filter /Standard /V 1 /R 2 /Length 40 /O <${hexBytes(enc.O)}> /U <${hexBytes(enc.U)}> /P ${enc.P} >>\\nendobj\\n`);
-  const encOff=cur + (pdfBytes(x+'\\n').length);
-  x=x.replace('/Encrypt 7 0 R','/Encrypt 7 0 R')+`\\nstartxref\\n${encOff}\\n%%EOF`;
-  parts.push(pdfBytes(x+'\\n'),encObj);
-  // Rebuild with correct xref: encryption object must be before xref.
-  parts.length=1; cur=parts[0].length; Object.keys(offs).forEach(()=>{});
-  const all=[parts[0]]; const off2={}; cur=parts[0].length;
-  for(let i=1;i<=6;i++){off2[i]=cur;let b=i===6?pdfConcat([pdfBytes('6 0 obj\\n'+objs[6]+'\\nstream\\n'),enc.encrypted,pdfBytes('\\nendstream\\nendobj\\n')]):pdfBytes(i+' 0 obj\\n'+objs[i]+'\\nendobj\\n');all.push(b);cur+=b.length;}
-  off2[7]=cur; all.push(encObj);cur+=encObj.length;
-  const xp=cur; let xx='xref\\n0 8\\n0000000000 65535 f \\n';for(let i=1;i<=7;i++)xx+=String(off2[i]).padStart(10,'0')+' 00000 n \\n';
-  xx+=`trailer\\n<< /Size 8 /Root 1 0 R /Encrypt 7 0 R /ID [<${hexBytes(enc.id)}> <${hexBytes(enc.id)}>] >>\\nstartxref\\n${xp}\\n%%EOF`;
-  all.push(pdfBytes(xx));
-  return new Blob(all,{type:'application/pdf'});
+  const xp=cur;
+  let x='xref\\n0 8\\n0000000000 65535 f \\n';
+  for(let i=1;i<=count;i++) x+=String(offs[i]).padStart(10,'0')+' 00000 n \\n';
+  x+=`trailer\\n<< /Size 8 /Root 1 0 R /Encrypt 7 0 R /ID [<${hexBytes(enc.id)}> <${hexBytes(enc.id)}>] >>\\nstartxref\\n${xp}\\n%%EOF`;
+  parts.push(pdfBytes(x));
+  return new Blob(parts,{type:'application/pdf'});
 }
 async function esqueciSenha(){
   try{
