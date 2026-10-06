@@ -256,3 +256,81 @@ body[data-theme="escuro"] .forgot-password{color:#8ab4ff}
   padding:10px 12px !important;
   min-height:0 !important;
 }
+
+
+/* ===== Padrão único dos botões de ação ===== */
+#clientesLista .client-card,
+#orcamentosLista .quote-card{
+  min-height:82px !important;
+  padding:9px 12px !important;
+  position:relative;
+}
+#clientesLista .client-info{
+  padding-right:78px !important;
+  gap:2px !important;
+}
+#clientesLista .client-info>b{line-height:1.1}
+#clientesLista .client-info .contact-link{margin-top:4px;line-height:1.1}
+#clientesLista .client-actions{
+  position:absolute !important;
+  top:8px !important;
+  right:10px !important;
+  display:flex !important;
+  gap:8px !important;
+  margin:0 !important;
+}
+#clientesLista .client-actions .quote-icon,
+#orcamentosLista .quote-actions .quote-icon{
+  width:30px !important;
+  height:30px !important;
+  min-width:30px !important;
+  min-height:30px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:7px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-size:16px !important;
+  line-height:1 !important;
+  flex:0 0 30px !important;
+}
+#clientesLista .novo-orcamento-client{
+  position:absolute !important;
+  top:45px !important;
+  right:10px !important;
+  margin:0 !important;
+  min-height:29px !important;
+  height:29px !important;
+  padding:4px 9px !important;
+  font-size:12px !important;
+  border-radius:7px !important;
+}
+/* Orçamentos: mesma dimensão dos cards de Clientes */
+#orcamentosLista .quote-card{min-height:82px !important}
+#orcamentosLista .quote-actions{
+  margin-top:7px !important;
+  padding-top:0 !important;
+  border-top:0 !important;
+  gap:8px !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+}
+#orcamentosLista .quote-actions .spacer{flex:1 1 auto}
+/* Cores padronizadas */
+#clientesLista .action-edit,
+#orcamentosLista .action-edit{background:#e8f1ff !important;color:#1769e0 !important}
+#clientesLista .action-approve,
+#orcamentosLista .action-approve{background:#e7f7ec !important;color:#199447 !important}
+#clientesLista .action-block,
+#orcamentosLista .action-block{background:#fff1df !important;color:#e67e00 !important}
+#clientesLista .action-delete,
+#orcamentosLista .action-delete{background:#ffe8e8 !important;color:#d62828 !important}
+body[data-theme="escuro"] #clientesLista .action-edit,
+body[data-theme="escuro"] #orcamentosLista .action-edit{background:#203a5e !important;color:#78adff !important}
+body[data-theme="escuro"] #clientesLista .action-approve,
+body[data-theme="escuro"] #orcamentosLista .action-approve{background:#173d2a !important;color:#66d995 !important}
+body[data-theme="escuro"] #clientesLista .action-block,
+body[data-theme="escuro"] #orcamentosLista .action-block{background:#4a3219 !important;color:#ffb45d !important}
+body[data-theme="escuro"] #clientesLista .action-delete,
+body[data-theme="escuro"] #orcamentosLista .action-delete{background:#4b2222 !important;color:#ff7777 !important}
